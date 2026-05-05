@@ -1,6 +1,12 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// In production on Vercel experimentalServices, backend is at /_/backend/api
+// Locally the Vite proxy maps /api → localhost:4000
+// VITE_API_URL env var overrides both (set in Vercel dashboard)
+const isVercel = typeof window !== 'undefined' && window.location.hostname.endsWith('.vercel.app');
+const API_BASE  = import.meta.env.VITE_API_URL
+  || (isVercel ? '/_/backend/api' : '/api');
+
 
 const api = axios.create({
   baseURL: API_BASE,
