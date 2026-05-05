@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.npm
+
+# Environment — NEVER commit secrets
+.env
+.env.local
+.env.production
+
+# Build output
+dist/
+build/
+.vite/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Service account key (keep offline)
+backend/service-account.json
