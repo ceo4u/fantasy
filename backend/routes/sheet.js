@@ -153,4 +153,19 @@ router.post('/update-points', authMiddleware, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/sheet/mark-captain-vc  (admin only)
+// body: { teamName, playerName, role }  role = "C" | "VC" | ""
+router.post('/mark-captain-vc', authMiddleware, async (req, res, next) => {
+  try {
+    const { teamName, playerName, role } = req.body;
+    if (!teamName?.trim())   return res.status(400).json({ error: 'teamName required' });
+    if (!playerName?.trim()) return res.status(400).json({ error: 'playerName required' });
+    if (!['C','VC',''].includes(role)) return res.status(400).json({ error: 'role must be C, VC, or empty string' });
+    const result = await callScript({ action: 'markCaptainVC', teamName: teamName.trim(), playerName: playerName.trim(), role });
+    if (!result.success) return res.status(400).json({ error: result.error || 'Apps Script error' });
+    res.json({ success: true, teamName: teamName.trim(), player: playerName.trim(), role });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
+

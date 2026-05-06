@@ -64,4 +64,12 @@ export async function updateMatchPoints(teamName, rawName, matchIndex, points) {
   return data;
 }
 
+// Admin: mark a player as Captain (C), Vice-Captain (VC), or remove role ("")
+// Also triggers recalculation of their total with correct multiplier
+export async function markCaptainVC(teamName, playerName, role) {
+  const { data } = await api.post('/sheet/mark-captain-vc', { teamName, playerName, role });
+  return data;
+}
+
 export default api;
+
