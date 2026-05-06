@@ -46,9 +46,21 @@ export async function fetchRankings() {
   return data;
 }
 
-// Admin: update a player's points (JWT required — auto-attached by interceptor)
+// Fetch match-wise squad data for a team tab
+export async function fetchSquad(teamName) {
+  const { data } = await api.get(`/sheet/squad/${encodeURIComponent(teamName)}`);
+  return data;
+}
+
+// Admin: update a player's points (total override)
 export async function updatePoints(name, points) {
   const { data } = await api.post('/sheet/update-points', { name, points });
+  return data;
+}
+
+// Admin: update match-specific points for a player in their team tab
+export async function updateMatchPoints(teamName, rawName, matchIndex, points) {
+  const { data } = await api.post('/sheet/update-match-points', { teamName, rawName, matchIndex, points });
   return data;
 }
 
