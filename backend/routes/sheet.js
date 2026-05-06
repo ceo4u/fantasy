@@ -6,13 +6,35 @@ const authMiddleware = require('../middleware/auth');
 const SHEET_ID = '1VbkAdMPIj4nd-a9VaQVIr1E5s_DSq8hJmujGBSVhnqA';
 const MATCH_LABELS = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','Q1','EL','Q2','F'];
 
-async function fetchGvizTab(tabName) {
+async function fetchGvizRaw(tabName) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch tab: ${tabName} (${res.status})`);
+  if (!res.ok) return null;
   const text = await res.text();
-  return JSON.parse(text.slice(text.indexOf('(') + 1, text.lastIndexOf(')')));
+  try {
+    return JSON.parse(text.slice(text.indexOf('(') + 1, text.lastIndexOf(')')));
+  } catch { return null; }
 }
+
+// Try exact → UPPERCASE → TITLE CASE for sheet tab names
+async function fetchGvizTab(tabName) {
+  const variants = [
+    tabName,
+    tabName.toUpperCase(),
+    tabName.charAt(0).toUpperCase() + tabName.slice(1),
+    tabName.replace(/\s+/g, '').toUpperCase(),
+  ].filter((v, i, a) => a.indexOf(v) === i); // unique
+
+  for (const v of variants) {
+    const json = await fetchGvizRaw(v);
+    if (json && json.table?.rows?.length > 0) return json;
+  }
+  // last resort — return whatever the exact name gives
+  const fallback = await fetchGvizRaw(tabName);
+  if (fallback) return fallback;
+  throw new Error(`Sheet tab not found: ${tabName}`);
+}
+
 
 async function callScript(payload) {
   const scriptUrl = process.env.GOOGLE_SCRIPT_URL;

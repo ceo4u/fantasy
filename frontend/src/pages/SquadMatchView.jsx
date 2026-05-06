@@ -115,8 +115,16 @@ function PlayerRow({ player, teamName, isAdmin, matchLabels, onSaved, toast }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[12px] font-semibold text-white leading-tight truncate">{player.name}</span>
-              {player.isC  && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-[#F5C518] text-black">C · 2×</span>}
-              {player.isVC && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-white/20 text-white">VC · 1.5×</span>}
+              {player.isC  && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#F5C518] text-black shrink-0">
+                  C <span className="text-[9px] opacity-70">2×</span>
+                </span>
+              )}
+              {player.isVC && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-white/25 text-white border border-white/30 shrink-0">
+                  VC <span className="text-[9px] opacity-70">1.5×</span>
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
