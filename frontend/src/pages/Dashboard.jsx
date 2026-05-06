@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Users, TrendingUp, Star, RefreshCw, Search, X } from 'lucide-react';
-import { usePlayers } from '../hooks/usePlayers';
+import { Users, TrendingUp, Star, RefreshCw, Search, X, ArrowRight, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { usePlayers, useRankings } from '../hooks/usePlayers';
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.025 } } };
 const row     = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: 0.2 } } };
@@ -28,7 +29,9 @@ function SkeletonRow() {
 const SKILLS = ['ALL', 'BAT', 'BOWL', 'WK'];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { players, loading, error, refetch } = usePlayers();
+  const { rankings, loading: rLoading } = useRankings();
   const [search, setSearch]       = useState('');
   const [skill,  setSkill]        = useState('ALL');
 
@@ -107,6 +110,62 @@ export default function Dashboard() {
             </>
           )}
         </div>
+      </div>
+
+      {/* ── Squads ── */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="label text-[#F5C518] mb-0.5">All Teams</p>
+            <h2 className="text-base font-bold text-white">Squad Browser</h2>
+          </div>
+          <button
+            onClick={() => navigate('/rankings')}
+            className="text-xs text-white/30 hover:text-white/60 flex items-center gap-1 transition-colors"
+          >
+            Full Rankings <ArrowRight size={11} />
+          </button>
+        </div>
+
+        {rLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="card p-4 space-y-2">
+                <div className="skeleton h-3 w-6 rounded" />
+                <div className="skeleton h-4 w-24 rounded" />
+                <div className="skeleton h-3 w-16 rounded" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {rankings.map((r, i) => {
+              const medal = ['🥇','🥈','🥉'][r.rank - 1];
+              const ptColor = r.rank === 1 ? '#F5C518' : r.rank === 2 ? '#C0C0C0' : r.rank === 3 ? '#CD7F32' : '#ffffff';
+              return (
+                <motion.button
+                  key={r.team}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.035, duration: 0.2 }}
+                  onClick={() => navigate(`/squad/${encodeURIComponent(r.team)}`)}
+                  className="card-hover text-left p-4 rounded-xl group transition-all duration-150 active:scale-[0.98] w-full"
+                >
+                  <div className="flex items-start justify-between gap-1 mb-2">
+                    <span className="text-lg leading-none">{medal || <span className="text-xs font-bold text-white/20 font-mono">#{r.rank}</span>}</span>
+                    <ChevronRight size={13} className="text-white/15 group-hover:text-white/40 mt-0.5 transition-colors shrink-0" />
+                  </div>
+                  <p className="text-[13px] font-bold text-white truncate leading-tight group-hover:text-[#F5C518] transition-colors">{r.team}</p>
+                  <p className="text-[11px] text-white/30 truncate mt-0.5">{r.owner}</p>
+                  <p className="text-[13px] font-black font-mono mt-2 leading-none" style={{ color: ptColor }}>
+                    {r.totalPoints?.toLocaleString()}
+                    <span className="text-[9px] font-normal text-white/25 ml-1">pts</span>
+                  </p>
+                </motion.button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Search + Filter ── */}
