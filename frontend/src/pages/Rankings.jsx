@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, RefreshCw, X, Users, Trophy, Zap, TrendingUp } from 'lucide-react';
-import { useRankings, usePlayers } from '../hooks/usePlayers';
+import { ArrowRight, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useRankings } from '../hooks/usePlayers';
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function SkeletonCard() {
@@ -311,9 +312,14 @@ function TeamDetailModal({ entry, allPlayers, onClose }) {
 }
 
 // ─── Rank Card (list item) ────────────────────────────────────────────────────
-function RankCard({ entry, index, onSelect }) {
+function RankCard({ entry, index }) {
+  const navigate = useNavigate();
   const cfg  = RANK_STYLES[entry.rank - 1];
   const top3 = entry.rank <= 3;
+
+  function goToSquad() {
+    navigate(`/squad/${encodeURIComponent(entry.team)}`);
+  }
 
   return (
     <motion.div
@@ -322,7 +328,7 @@ function RankCard({ entry, index, onSelect }) {
       transition={{ delay: index * 0.04, duration: 0.22 }}
       className={`card-hover overflow-hidden rounded-xl cursor-pointer transition-all duration-150 ${top3 ? cfg.card : ''}`}
       style={top3 && cfg.glow ? { boxShadow: cfg.glow } : {}}
-      onClick={() => onSelect(entry)}
+      onClick={goToSquad}
     >
       <div className="flex items-center gap-4 px-5 py-4">
         {/* Rank badge */}
@@ -357,7 +363,7 @@ function RankCard({ entry, index, onSelect }) {
             </p>
             <p className="label">pts</p>
           </div>
-          <ChevronDown size={14} className="text-white/15" />
+          <ArrowRight size={14} className="text-white/15 group-hover:text-white/40 transition-colors" />
         </div>
       </div>
     </motion.div>
@@ -367,8 +373,6 @@ function RankCard({ entry, index, onSelect }) {
 // ─── Main Rankings Page ───────────────────────────────────────────────────────
 export default function Rankings() {
   const { rankings, loading, error, refetch } = useRankings();
-  const { players } = usePlayers();
-  const [selected, setSelected] = useState(null);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -377,7 +381,7 @@ export default function Rankings() {
         <div>
           <p className="label text-[#F5C518] mb-1.5">Season 2025</p>
           <h1 className="text-2xl font-bold text-white tracking-tight">League Rankings</h1>
-          <p className="text-sm text-white/30 mt-0.5">Click any team for full squad breakdown</p>
+          <p className="text-sm text-white/30 mt-0.5">Click any team to view full squad →</p>
         </div>
         <button
           onClick={refetch}
@@ -412,7 +416,6 @@ export default function Rankings() {
               key={entry.team}
               entry={entry}
               index={i}
-              onSelect={setSelected}
             />
           ))}
           {rankings.length === 0 && (
@@ -420,17 +423,6 @@ export default function Rankings() {
           )}
         </div>
       )}
-
-      {/* Team Detail Modal */}
-      <AnimatePresence>
-        {selected && (
-          <TeamDetailModal
-            entry={selected}
-            allPlayers={players}
-            onClose={() => setSelected(null)}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

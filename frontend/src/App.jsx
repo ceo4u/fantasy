@@ -8,6 +8,7 @@ import Dashboard  from './pages/Dashboard';
 import Rankings   from './pages/Rankings';
 import AdminPanel from './pages/AdminPanel';
 import { LayoutDashboard, Trophy, Shield } from 'lucide-react';
+import SquadView from './pages/SquadView';
 
 // ── Mobile bottom nav (shown below md) ───────────────────────────────────────
 function BottomNav() {
@@ -76,9 +77,10 @@ function Layout() {
                          max-w-[1100px] w-full mx-auto
                          pb-24 md:pb-10">
           <Routes>
-            <Route path="/"         element={<Dashboard />} />
-            <Route path="/rankings" element={<Rankings />} />
-            <Route path="/admin"    element={<AdminPanel />} />
+            <Route path="/"                    element={<Dashboard />} />
+            <Route path="/rankings"            element={<Rankings />} />
+            <Route path="/squad/:teamSlug"     element={<SquadView />} />
+            <Route path="/admin"               element={<AdminPanel />} />
           </Routes>
         </main>
       </div>
