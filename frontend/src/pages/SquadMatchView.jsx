@@ -2,8 +2,7 @@ import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, RefreshCw, Save, CheckCircle, Loader, AlertTriangle, Edit3, X } from 'lucide-react';
-import { useSquad } from '../hooks/usePlayers';
-import { useRankings } from '../hooks/usePlayers';
+import { useSquad, useRankings } from '../hooks/usePlayers';
 import { useAuth } from '../context/AuthContext';
 import { updateMatchPoints } from '../utils/api';
 

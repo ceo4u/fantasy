@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import api, { fetchSheet, fetchRankings as fetchRankingsFromSheet, fetchSquad as fetchSquadFromApi } from '../utils/api';
+import { fetchSheet, fetchRankings as fetchRankingsFromSheet, fetchSquad as fetchSquadFromApi } from '../utils/api';
 
 export function usePlayers() {
   const [players, setPlayers] = useState([]);
