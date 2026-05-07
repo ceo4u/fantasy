@@ -66,10 +66,11 @@ router.get('/players', async (req, res, next) => {
 });
 
 // GET /api/sheet/rankings
+// Computes totalPoints live from each team's squad tab (Col F sum) for accuracy
 router.get('/rankings', async (req, res, next) => {
   try {
     const parsed = await fetchGvizTab('Rankings');
-    const rankings = parsed.table.rows
+    const baseRankings = parsed.table.rows
       .filter(r => r.c[0]?.v && r.c[1]?.v)
       .map(r => ({
         rank: Math.round(r.c[0].v),
@@ -79,7 +80,38 @@ router.get('/rankings', async (req, res, next) => {
         status: r.c[4]?.v || '',
         capVc: r.c[5]?.v || '',
       }));
-    res.json(rankings);
+
+    // Compute live totals from each team tab (sum of Col F = leaguePoints with multipliers)
+    const withLiveTotals = await Promise.all(baseRankings.map(async (entry) => {
+      try {
+        const teamParsed = await fetchGvizTab(entry.team);
+        const rows = teamParsed.table.rows;
+        let liveTotal = 0;
+        rows
+          .filter(r => r.c[1]?.v && typeof r.c[0]?.v === 'number')
+          .forEach(r => {
+            const rawName = String(r.c[1].v).trim();
+            const isC  = /\(C\)/.test(rawName) && !/\(VC\)/.test(rawName);
+            const isVC = /\(VC\)/.test(rawName);
+            const multiplier = isC ? 2 : isVC ? 1.5 : 1;
+            const matchPoints = MATCH_LABELS.map((_, i) => {
+              const v = r.c[6 + i]?.v;
+              return (v != null && typeof v === 'number') ? v : 0;
+            });
+            const baseTotal = matchPoints.reduce((s, v) => s + v, 0);
+            liveTotal += parseFloat((baseTotal * multiplier).toFixed(1));
+          });
+        return { ...entry, totalPoints: parseFloat(liveTotal.toFixed(1)) };
+      } catch {
+        return entry; // fallback to Rankings tab value if team tab unavailable
+      }
+    }));
+
+    // Re-sort by live totalPoints descending and re-rank
+    withLiveTotals.sort((a, b) => b.totalPoints - a.totalPoints);
+    withLiveTotals.forEach((entry, i) => { entry.rank = i + 1; });
+
+    res.json(withLiveTotals);
   } catch (err) { next(err); }
 });
 

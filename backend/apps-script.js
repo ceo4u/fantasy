@@ -1,162 +1,316 @@
 // ============================================================
-// GOOGLE APPS SCRIPT — Fantasy IPL
-// Paste into Apps Script editor
-// Redeploy as Web App: Execute as Me, Access: Anyone
+// FANTASY IPL DASHBOARD - COMPLETE PRODUCTION SCRIPT
+// Spreadsheet ID: 1VbkAdMPIj4nd-a9VaQVIr1E5s_DSq8hJmujGBSVhnqA
+// Actions: updatePoints, updateMatchPoints, markCaptainVC
 // ============================================================
 
-var SS_ID = '1VbkAdMPIj4nd-a9VaQVIr1E5s_DSq8hJmujGBSVhnqA';
+const SPREADSHEET_ID = '1VbkAdMPIj4nd-a9VaQVIr1E5s_DSq8hJmujGBSVhnqA';
+
+// ============================================================
+// HEALTH CHECK - doGet
+// ============================================================
 
 function doGet(e) {
-  return ok({ status: 'ok', timestamp: new Date().toISOString() });
+  try {
+    return createResponse({
+      success: true,
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      message: "Fantasy IPL API is running"
+    });
+  } catch (err) {
+    return createErrorResponse(err.message);
+  }
 }
+
+// ============================================================
+// MAIN POST HANDLER
+// ============================================================
 
 function doPost(e) {
   try {
-    var body   = JSON.parse(e.postData.contents);
-    var action = body.action || 'updatePoints';
-    var ss     = SpreadsheetApp.openById(SS_ID);
+    const body = JSON.parse(e.postData.contents);
+    const action = body.action;
 
-    // ── 1. updatePoints ───────────────────────────────────────────────────────
     if (action === 'updatePoints') {
-      var sheet = ss.getSheetByName('Players');
-      if (!sheet) return fail('Players sheet not found');
-      var data = sheet.getDataRange().getValues();
-      for (var i = 1; i < data.length; i++) {
-        if (data[i][1] && normName(data[i][1]) === normName(body.name)) {
-          sheet.getRange(i + 1, 7).setValue(Number(body.points));
-          return ok({ updated: body.name, points: body.points });
-        }
-      }
-      return fail('Player not found: ' + body.name);
+      return handleUpdatePoints(body);
     }
 
-    // ── 2. updateMatchPoints ──────────────────────────────────────────────────
     if (action === 'updateMatchPoints') {
-      var teamSheet = ss.getSheetByName(body.teamName);
-      if (!teamSheet) return fail('Team sheet not found: ' + body.teamName);
-
-      var data     = teamSheet.getDataRange().getValues();
-      var matchCol = 7 + Number(body.matchIndex); // G=col7, 0-indexed
-
-      for (var i = 1; i < data.length; i++) {
-        var cellName = data[i][1] ? data[i][1].toString().trim() : '';
-        if (!cellName) continue;
-        if (normName(cellName) === normName(body.rawName)) {
-          teamSheet.getRange(i + 1, matchCol).setValue(Number(body.points));
-
-          var result = recalcRow(teamSheet, i + 1, cellName, ss);
-          return ok({ leaguePoints: result.leaguePoints, matchPoints: Number(body.points), multiplier: result.mult });
-        }
-      }
-      return fail('Player not found: ' + body.rawName);
+      return handleUpdateMatchPoints(body);
     }
 
-    // ── 3. markCaptainVC ─────────────────────────────────────────────────────
-    // payload: { action, teamName, playerName, role }  role = "C" | "VC" | ""
     if (action === 'markCaptainVC') {
-      var teamSheet = ss.getSheetByName(body.teamName);
-      if (!teamSheet) return fail('Team sheet not found: ' + body.teamName);
-
-      var data = teamSheet.getDataRange().getValues();
-
-      // Step 1: Remove existing C/VC from ALL players in this team first
-      // (only one C and one VC allowed per team)
-      for (var i = 1; i < data.length; i++) {
-        var cell = data[i][1] ? data[i][1].toString().trim() : '';
-        if (!cell) continue;
-        var clean = cell.replace(/\s*\(C\)|\s*\(VC\)/gi, '').trim();
-        // Only clear if this is the same role being reassigned
-        var wasC  = /\(C\)/i.test(cell) && !/\(VC\)/i.test(cell);
-        var wasVC = /\(VC\)/i.test(cell);
-        if ((body.role === 'C' && wasC) || (body.role === 'VC' && wasVC)) {
-          // Clear previous captain/vc
-          teamSheet.getRange(i + 1, 2).setValue(clean);
-          // Recalculate with multiplier=1
-          recalcRow(teamSheet, i + 1, clean, ss);
-        }
-      }
-
-      // Step 2: Re-read data after potential changes
-      data = teamSheet.getDataRange().getValues();
-      var found = false;
-
-      for (var i = 1; i < data.length; i++) {
-        var cell  = data[i][1] ? data[i][1].toString().trim() : '';
-        if (!cell) continue;
-        var clean = cell.replace(/\s*\(C\)|\s*\(VC\)/gi, '').trim();
-
-        if (normName(clean) === normName(body.playerName)) {
-          var newName = clean;
-          if (body.role === 'C')  newName = clean + ' (C)';
-          if (body.role === 'VC') newName = clean + ' (VC)';
-
-          // Update the name in col B
-          teamSheet.getRange(i + 1, 2).setValue(newName);
-
-          // Recalculate total with new multiplier
-          var result = recalcRow(teamSheet, i + 1, newName, ss);
-
-          found = true;
-          return ok({
-            teamName:     body.teamName,
-            player:       newName,
-            role:         body.role,
-            leaguePoints: result.leaguePoints,
-            multiplier:   result.mult
-          });
-        }
-      }
-
-      if (!found) return fail('Player not found: ' + body.playerName);
+      return handleMarkCaptainVC(body);
     }
 
-    return fail('Unknown action: ' + action);
+    return createErrorResponse(`Unknown action: ${action}`);
 
-  } catch(err) {
-    return fail(err.toString());
+  } catch (err) {
+    return createErrorResponse(err.message);
   }
 }
 
-// ── Shared: recalculate a player's league points after any change ────────────
-function recalcRow(teamSheet, rowNum, cellName, ss) {
-  var rowVals   = teamSheet.getRange(rowNum, 7, 1, 18).getValues()[0];
-  var baseTotal = rowVals.reduce(function(s, v) { return s + (Number(v) || 0); }, 0);
+// ============================================================
+// SHARED HELPER: recalcRow
+// ============================================================
+// Recounts all match cols (G–X), applies C/VC multiplier,
+// writes to Col F, syncs to Players tab.
+// Returns { leaguePoints, multiplier }
 
-  var isC  = /\(C\)/i.test(cellName) && !/\(VC\)/i.test(cellName);
-  var isVC = /\(VC\)/i.test(cellName);
-  var mult = isC ? 2 : isVC ? 1.5 : 1;
-  var leaguePoints = Math.round(baseTotal * mult * 10) / 10;
+function recalcRow(sheet, rowNumber, cellName, ss) {
+  // Get all 18 match columns (G to X = col 7 to col 24)
+  const matchRange = sheet.getRange(rowNumber, 7, 1, 18);
+  const matchValues = matchRange.getValues()[0];
 
-  // Write to col F
-  teamSheet.getRange(rowNum, 6).setValue(leaguePoints);
+  // Calculate base total from all matches
+  let baseTotal = 0;
+  for (let i = 0; i < matchValues.length; i++) {
+    baseTotal += (Number(matchValues[i]) || 0);
+  }
+
+  // Detect multiplier from cellName
+  const hasC = cellName.includes('(C)') && !cellName.includes('(VC)');
+  const hasVC = cellName.includes('(VC)');
+  let multiplier = 1;
+  if (hasC) multiplier = 2;
+  else if (hasVC) multiplier = 1.5;
+
+  // Calculate league points (rounded to 1 decimal)
+  const leaguePoints = Math.round(baseTotal * multiplier * 10) / 10;
+
+  // Write to Col F
+  sheet.getRange(rowNumber, 6).setValue(leaguePoints);
 
   // Sync to Players tab
-  var cleanName = cellName.replace(/\s*\(C\)|\s*\(VC\)/gi, '').trim();
-  var pSheet    = ss.getSheetByName('Players');
-  if (pSheet) {
-    var pData = pSheet.getDataRange().getValues();
-    for (var j = 1; j < pData.length; j++) {
-      if (pData[j][1] && normName(pData[j][1]) === normName(cleanName)) {
-        pSheet.getRange(j + 1, 7).setValue(leaguePoints);
-        break;
-      }
-    }
-  }
-  return { leaguePoints: leaguePoints, mult: mult };
+  const cleanName = cellName.replace(/\s*\(C\)|\s*\(VC\)/gi, '').trim();
+  syncToPlayersTab(ss, cleanName, leaguePoints);
+
+  return { leaguePoints: leaguePoints, multiplier: multiplier };
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function normName(s) {
-  return s.toString().trim().toUpperCase().replace(/\s+/g, ' ');
+// ============================================================
+// HELPER: Sync player points to Players tab
+// ============================================================
+
+function syncToPlayersTab(ss, playerName, leaguePoints) {
+  const playersSheet = ss.getSheetByName('Players');
+  if (!playersSheet) return;
+
+  const data = playersSheet.getDataRange().getValues();
+  const targetName = playerName.trim().toUpperCase();
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[1]) continue;
+    const rowName = row[1].toString().trim().toUpperCase();
+    if (rowName === targetName) {
+      playersSheet.getRange(i + 1, 7).setValue(leaguePoints); // Col G = TOTAL_POINTS
+      break;
+    }
+  }
 }
-function ok(d) {
-  d.success = true;
+
+// ============================================================
+// HELPER: Normalize name (trim, uppercase, collapse spaces)
+// ============================================================
+
+function normalizeName(name) {
+  if (!name) return '';
+  return name.toString().trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+// ============================================================
+// HELPER: Get clean name without C/VC suffix
+// ============================================================
+
+function getCleanName(nameWithSuffix) {
+  if (!nameWithSuffix) return '';
+  return nameWithSuffix.replace(/\s*\(C\)|\s*\(VC\)/gi, '').trim();
+}
+
+// ============================================================
+// ACTION 1: updatePoints - Direct override in Players tab
+// ============================================================
+
+function handleUpdatePoints(body) {
+  const { name, points } = body;
+
+  if (!name) return createErrorResponse('Missing player name');
+  if (typeof points !== 'number' || isNaN(points)) {
+    return createErrorResponse('Points must be a number');
+  }
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Players');
+  if (!sheet) return createErrorResponse('Players sheet not found');
+
+  const data = sheet.getDataRange().getValues();
+  const targetName = normalizeName(name);
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[1]) continue;
+    const rowName = normalizeName(row[1]);
+    if (rowName === targetName) {
+      sheet.getRange(i + 1, 7).setValue(points); // Col G = TOTAL_POINTS
+      return createResponse({
+        success: true,
+        updated: name,
+        points: points
+      });
+    }
+  }
+
+  return createErrorResponse(`Player not found: ${name}`);
+}
+
+// ============================================================
+// ACTION 2: updateMatchPoints - Update single match, auto-recalc
+// ============================================================
+
+function handleUpdateMatchPoints(body) {
+  const { teamName, rawName, matchIndex, points } = body;
+
+  if (!teamName) return createErrorResponse('Missing teamName');
+  if (!rawName)  return createErrorResponse('Missing rawName');
+  if (typeof matchIndex !== 'number' || matchIndex < 0 || matchIndex > 17) {
+    return createErrorResponse('matchIndex must be 0-17');
+  }
+  if (typeof points !== 'number' || isNaN(points)) {
+    return createErrorResponse('points must be a number');
+  }
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const teamSheet = ss.getSheetByName(teamName);
+  if (!teamSheet) return createErrorResponse(`Sheet not found: ${teamName}`);
+
+  const data = teamSheet.getDataRange().getValues();
+  const targetName = normalizeName(rawName);
+  const matchCol = 7 + matchIndex; // Col G=7 (matchIndex 0), Col H=8 (matchIndex 1), ...
+
+  let playerRow = -1;
+  let playerColB = '';
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[1]) continue;
+    const cellName = row[1].toString().trim();
+    if (normalizeName(cellName) === targetName) {
+      playerRow = i + 1; // 1-indexed
+      playerColB = cellName;
+      break;
+    }
+  }
+
+  if (playerRow === -1) {
+    return createErrorResponse(`Player not found: ${rawName}`);
+  }
+
+  // Update the match points cell
+  teamSheet.getRange(playerRow, matchCol).setValue(points);
+
+  // Recalculate the row
+  const { leaguePoints, multiplier } = recalcRow(teamSheet, playerRow, playerColB, ss);
+
+  return createResponse({
+    success: true,
+    leaguePoints: leaguePoints,
+    matchPoints: points,
+    multiplier: multiplier,
+    playerName: playerColB
+  });
+}
+
+// ============================================================
+// ACTION 3: markCaptainVC - Mark player as C/VC, auto-clear previous
+// ============================================================
+
+function handleMarkCaptainVC(body) {
+  const { teamName, playerName, role } = body;
+
+  if (!teamName)   return createErrorResponse('Missing teamName');
+  if (!playerName) return createErrorResponse('Missing playerName');
+  if (role !== 'C' && role !== 'VC' && role !== '') {
+    return createErrorResponse('role must be "C", "VC", or ""');
+  }
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const teamSheet = ss.getSheetByName(teamName);
+  if (!teamSheet) return createErrorResponse(`Sheet not found: ${teamName}`);
+
+  const data = teamSheet.getDataRange().getValues();
+  const targetCleanName = normalizeName(playerName);
+
+  // Step A: Clear previous holder of the same role
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[1]) continue;
+
+    const currentName = row[1].toString().trim();
+    const cleanCurrent = getCleanName(currentName);
+
+    let hasRole = false;
+    if (role === 'C'  && currentName.includes('(C)') && !currentName.includes('(VC)')) hasRole = true;
+    if (role === 'VC' && currentName.includes('(VC)')) hasRole = true;
+
+    if (hasRole) {
+      teamSheet.getRange(i + 1, 2).setValue(cleanCurrent);
+      recalcRow(teamSheet, i + 1, cleanCurrent, ss); // multiplier → 1
+    }
+  }
+
+  // Step B: Re-read and find target player
+  const updatedData = teamSheet.getDataRange().getValues();
+  let targetRow = -1;
+  let currentName = '';
+
+  for (let i = 1; i < updatedData.length; i++) {
+    const row = updatedData[i];
+    if (!row[1]) continue;
+    const cleanCurrent = getCleanName(row[1].toString().trim());
+    if (normalizeName(cleanCurrent) === targetCleanName) {
+      targetRow = i + 1;
+      currentName = cleanCurrent;
+      break;
+    }
+  }
+
+  if (targetRow === -1) return createErrorResponse(`Player not found: ${playerName}`);
+
+  // Build new name with suffix
+  let newName = currentName;
+  if (role === 'C')  newName = currentName + ' (C)';
+  if (role === 'VC') newName = currentName + ' (VC)';
+
+  teamSheet.getRange(targetRow, 2).setValue(newName);
+
+  // Step C: Recalculate with new multiplier
+  const { leaguePoints, multiplier } = recalcRow(teamSheet, targetRow, newName, ss);
+
+  return createResponse({
+    success: true,
+    teamName: teamName,
+    player: newName,
+    role: role === 'C' ? 'Captain' : (role === 'VC' ? 'Vice-Captain' : 'None'),
+    leaguePoints: leaguePoints,
+    multiplier: multiplier
+  });
+}
+
+// ============================================================
+// RESPONSE HELPERS
+// ============================================================
+
+function createResponse(data) {
+  data.success = true;
   return ContentService
-    .createTextOutput(JSON.stringify(d))
+    .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
-function fail(m) {
+
+function createErrorResponse(error) {
   return ContentService
-    .createTextOutput(JSON.stringify({ success: false, error: m }))
+    .createTextOutput(JSON.stringify({ success: false, error: error }))
     .setMimeType(ContentService.MimeType.JSON);
 }
