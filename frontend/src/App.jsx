@@ -9,7 +9,9 @@ import Rankings       from './pages/Rankings';
 import SquadsPage     from './pages/SquadsPage';
 import SquadMatchView from './pages/SquadMatchView';
 import AdminPanel     from './pages/AdminPanel';
-import { LayoutDashboard, Trophy, Users, Shield } from 'lucide-react';
+import MatchManagement  from './pages/MatchManagement';
+import PlayerSearch   from './pages/PlayerSearch';
+import { LayoutDashboard, Trophy, Users, Shield, Calendar, Search } from 'lucide-react';
 
 // ── Mobile bottom nav ─────────────────────────────────────────────────────────
 function BottomNav() {
@@ -72,6 +74,8 @@ function Layout() {
             <Route path="/squads/:teamSlug"          element={<SquadMatchView/>}/>
             <Route path="/squad/:teamSlug"           element={<SquadMatchView/>}/>  {/* legacy */}
             <Route path="/admin"                     element={<AdminPanel/>}/>
+            <Route path="/matches"                   element={<MatchManagement/>}/>
+            <Route path="/player-search"             element={<PlayerSearch/>}/>
           </Routes>
         </main>
       </div>

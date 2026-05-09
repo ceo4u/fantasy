@@ -10,7 +10,7 @@ const API_BASE  = import.meta.env.VITE_API_URL
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 15000,
+  timeout: 60000, // Increased to 60s to allow free Render servers to wake up
 });
 
 // Attach JWT token if available
@@ -71,5 +71,39 @@ export async function markCaptainVC(teamName, playerName, role) {
   return data;
 }
 
-export default api;
+export async function replacePlayer(teamName, oldPlayerName, newPlayerName, newPlayerIPLTeam, newPlayerSkill, newPlayerPrice) {
+  const { data } = await api.post('/sheet/replace-player', { teamName, oldPlayerName, newPlayerName, newPlayerIPLTeam, newPlayerSkill, newPlayerPrice });
+  return data;
+}
 
+export async function addMatch(teamA, teamB, date, venue, status) {
+  const { data } = await api.post('/sheet/add-match', { teamA, teamB, date, venue, status });
+  return data;
+}
+
+export async function updateMatchResult(matchId, winner, margin, matchPoints) {
+  const { data } = await api.post('/sheet/update-match-result', { matchId, winner, margin, matchPoints });
+  return data;
+}
+
+export async function getMatches() {
+  const { data } = await api.get('/sheet/matches');
+  return data;
+}
+
+export async function getAvailablePlayers() {
+  const { data } = await api.get('/sheet/available-players');
+  return data;
+}
+
+export async function searchPlayers(params) {
+  const { data } = await api.post('/sheet/search-players', params);
+  return data;
+}
+
+export async function getPlayerMatchHistory(playerName, teamName) {
+  const { data } = await api.post('/sheet/player-match-history', { playerName, teamName });
+  return data;
+}
+
+export default api;

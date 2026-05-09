@@ -199,5 +199,71 @@ router.post('/mark-captain-vc', authMiddleware, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-module.exports = router;
+// POST /api/sheet/replace-player  (admin only)
+router.post('/replace-player', authMiddleware, async (req, res, next) => {
+  try {
+    const { teamName, oldPlayerName, newPlayerName, newPlayerIPLTeam, newPlayerSkill, newPlayerPrice } = req.body;
+    if (!teamName || !oldPlayerName || !newPlayerName) return res.status(400).json({ error: 'Missing required fields' });
+    const result = await callScript({ action: 'replacePlayer', teamName, oldPlayerName, newPlayerName, newPlayerIPLTeam, newPlayerSkill, newPlayerPrice });
+    if (!result.success) return res.status(400).json({ error: result.error || 'Apps Script error' });
+    res.json(result);
+  } catch (err) { next(err); }
+});
 
+// POST /api/sheet/add-match  (admin only)
+router.post('/add-match', authMiddleware, async (req, res, next) => {
+  try {
+    const { teamA, teamB, date, venue, status } = req.body;
+    const result = await callScript({ action: 'addMatch', teamA, teamB, date, venue, status });
+    if (!result.success) return res.status(400).json({ error: result.error || 'Apps Script error' });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+// POST /api/sheet/update-match-result  (admin only)
+router.post('/update-match-result', authMiddleware, async (req, res, next) => {
+  try {
+    const { matchId, winner, margin, matchPoints } = req.body;
+    const result = await callScript({ action: 'updateMatchResult', matchId, winner, margin, matchPoints });
+    if (!result.success) return res.status(400).json({ error: result.error || 'Apps Script error' });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+// GET /api/sheet/matches
+router.get('/matches', async (req, res, next) => {
+  try {
+    const result = await callScript({ action: 'getMatches' });
+    if (!result.success) return res.status(400).json({ error: result.error || 'Apps Script error' });
+    res.json(result.matches || []);
+  } catch (err) { next(err); }
+});
+
+// GET /api/sheet/available-players
+router.get('/available-players', async (req, res, next) => {
+  try {
+    const result = await callScript({ action: 'getAvailablePlayers' });
+    if (!result.success) return res.status(400).json({ error: result.error || 'Apps Script error' });
+    res.json(result.players || []);
+  } catch (err) { next(err); }
+});
+
+// POST /api/sheet/search-players
+router.post('/search-players', async (req, res, next) => {
+  try {
+    const result = await callScript({ action: 'searchPlayers', ...req.body });
+    if (!result.success) return res.status(400).json({ error: result.error || 'Apps Script error' });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+// POST /api/sheet/player-match-history
+router.post('/player-match-history', async (req, res, next) => {
+  try {
+    const result = await callScript({ action: 'getPlayerMatchHistory', ...req.body });
+    if (!result.success) return res.status(400).json({ error: result.error || 'Apps Script error' });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+module.exports = router;

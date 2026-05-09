@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Save, CheckCircle, AlertCircle, Loader, ShieldOff, RefreshCw, AlertTriangle, Users, Clock, Zap, Crown, Shield } from 'lucide-react';
+import { Save, CheckCircle, AlertCircle, Loader, ShieldOff, RefreshCw, AlertTriangle, Users, Clock, Zap, Crown, Shield, UserX } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSquad, useRankings } from '../hooks/usePlayers';
 import { updateMatchPoints, markCaptainVC } from '../utils/api';
+import ReplacePlayerModal from '../components/ReplacePlayerModal';
 
 const IPL_COLORS = {
   CSK:{bg:'#D4A017',text:'#000'}, MI:{bg:'#1A56B0',text:'#fff'},
@@ -73,7 +74,7 @@ const MatchCell = ({ value, originalValue, onChange, disabled }) => {
 };
 
 // ─── Player Row ───────────────────────────────────────────────────────────────
-const PlayerRow = ({ player, rowIdx, matchLabels, draft, savingRows, savedRows, markingRows, teamName, onCellChange, onSaveRow, onMarkRole }) => {
+const PlayerRow = ({ player, rowIdx, matchLabels, draft, savingRows, savedRows, markingRows, teamName, onCellChange, onSaveRow, onMarkRole, onReplaceClick }) => {
   const ipl     = IPL_COLORS[player.iplTeam] || { bg: '#333', text: '#fff' };
   const saving  = savingRows.has(player.sno);
   const saved   = savedRows.has(player.sno);
@@ -108,6 +109,14 @@ const PlayerRow = ({ player, rowIdx, matchLabels, draft, savingRows, savedRows, 
                 label="VC" color="bg-blue-600/80 text-white border-blue-500"
                 onMark={r => onMarkRole(rowIdx, r)} disabled={marking || saving} />
               {marking && <Loader size={9} className="animate-spin text-[#F5C518]" />}
+              
+              <button 
+                onClick={() => onReplaceClick(player.name)}
+                className="ml-2 flex items-center gap-1 text-[9px] font-semibold text-red-400 hover:text-red-300 bg-red-900/20 border border-red-900/30 px-1.5 py-0.5 rounded transition"
+                title="Replace Player"
+              >
+                <UserX size={10} /> Replace
+              </button>
             </div>
           </div>
         </div>
@@ -175,6 +184,10 @@ function TeamMatchEditor({ teamName, addToast }) {
   const [markingRows, setMarkingRows] = useState(new Set());
   const [lastSync,    setLastSync]    = useState(null);
   const squadRef = useRef(null);
+
+  // Replacement Modal State
+  const [replaceModalOpen, setReplaceModalOpen] = useState(false);
+  const [playerToReplace, setPlayerToReplace] = useState('');
 
   useEffect(() => {
     if (squad && squad !== squadRef.current) {
@@ -331,7 +344,8 @@ function TeamMatchEditor({ teamName, addToast }) {
                 <PlayerRow key={p.sno} player={p} rowIdx={ri} matchLabels={matchLabels}
                   draft={drafts[ri] || p.matchPoints} savingRows={savingRows} savedRows={savedRows}
                   markingRows={markingRows} teamName={teamName}
-                  onCellChange={handleCellChange} onSaveRow={handleSaveRow} onMarkRole={handleMarkRole} />
+                  onCellChange={handleCellChange} onSaveRow={handleSaveRow} onMarkRole={handleMarkRole}
+                  onReplaceClick={(name) => { setPlayerToReplace(name); setReplaceModalOpen(true); }} />
               ))}
             </tbody>
             <tfoot>
@@ -355,6 +369,17 @@ function TeamMatchEditor({ teamName, addToast }) {
         <span><Shield size={10} className="inline mr-1 text-blue-400" />Vice-Captain = 1.5× points</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded border border-[#F5C518]/60 bg-[#18180F]"/>Yellow = unsaved change</span>
       </div>
+
+      <ReplacePlayerModal
+        open={replaceModalOpen}
+        onClose={() => setReplaceModalOpen(false)}
+        teamName={teamName}
+        oldPlayerName={playerToReplace}
+        onPlayerReplaced={(newName) => {
+          addToast(`Successfully replaced ${playerToReplace} with ${newName}`, 'success');
+          refetch(); // Refresh squad
+        }}
+      />
     </div>
   );
 }

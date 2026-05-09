@@ -1,17 +1,23 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Trophy, Users, Shield, X } from 'lucide-react';
+import { LayoutDashboard, Trophy, Users, Shield, X, Calendar, ClipboardList, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const baseLinks = [
-  { to: '/',        label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/rankings',label: 'Rankings',  icon: Trophy },
-  { to: '/squads',  label: 'Squads',    icon: Users },
+  { to: '/',         label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/player-search', label: 'Player Search', icon: Search },
+  { to: '/rankings', label: 'Rankings',  icon: Trophy },
+  { to: '/squads',   label: 'Squads',    icon: Users },
 ];
 
 export default function Sidebar({ mobile, onClose }) {
   const { isAdmin } = useAuth();
   const navItems = isAdmin
-    ? [...baseLinks, { to: '/admin', label: 'Admin', icon: Shield }]
+    ? [
+        ...baseLinks, 
+        { to: '/matches', label: 'Matches', icon: Calendar },
+        { to: '/admin', label: 'Admin', icon: Shield },
+        { to: '/transfer-log', label: 'Transfer Log', icon: ClipboardList }
+      ]
     : baseLinks;
 
   return (
