@@ -76,6 +76,11 @@ export async function replacePlayer(teamName, oldPlayerName, newPlayerName, newP
   return data;
 }
 
+export async function undoReplace(teamName, currentName, originalName) {
+  const { data } = await api.post('/sheet/undo-replace', { teamName, currentName, originalName });
+  return data;
+}
+
 export async function addMatch(teamA, teamB, date, venue, status) {
   const { data } = await api.post('/sheet/add-match', { teamA, teamB, date, venue, status });
   return data;

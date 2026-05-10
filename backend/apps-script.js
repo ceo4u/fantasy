@@ -48,6 +48,10 @@ function doPost(e) {
       return handleReplacePlayer(body);
     }
 
+    if (action === 'undoReplace') {
+      return handleUndoReplace(body);
+    }
+
     if (action === 'addMatch') {
       return handleAddMatch(body);
     }
@@ -201,7 +205,7 @@ function handleUpdateMatchPoints(body) {
   const { teamName, rawName, matchIndex, points } = body;
 
   if (!teamName) return createErrorResponse('Missing teamName');
-  if (!rawName)  return createErrorResponse('Missing rawName');
+  if (!rawName) return createErrorResponse('Missing rawName');
   if (typeof matchIndex !== 'number' || matchIndex < 0 || matchIndex > 17) {
     return createErrorResponse('matchIndex must be 0-17');
   }
@@ -257,7 +261,7 @@ function handleUpdateMatchPoints(body) {
 function handleMarkCaptainVC(body) {
   const { teamName, playerName, role } = body;
 
-  if (!teamName)   return createErrorResponse('Missing teamName');
+  if (!teamName) return createErrorResponse('Missing teamName');
   if (!playerName) return createErrorResponse('Missing playerName');
   if (role !== 'C' && role !== 'VC' && role !== '') {
     return createErrorResponse('role must be "C", "VC", or ""');
@@ -279,7 +283,7 @@ function handleMarkCaptainVC(body) {
     const cleanCurrent = getCleanName(currentName);
 
     let hasRole = false;
-    if (role === 'C'  && currentName.includes('(C)') && !currentName.includes('(VC)')) hasRole = true;
+    if (role === 'C' && currentName.includes('(C)') && !currentName.includes('(VC)')) hasRole = true;
     if (role === 'VC' && currentName.includes('(VC)')) hasRole = true;
 
     if (hasRole) {
@@ -308,7 +312,7 @@ function handleMarkCaptainVC(body) {
 
   // Build new name with suffix
   let newName = currentName;
-  if (role === 'C')  newName = currentName + ' (C)';
+  if (role === 'C') newName = currentName + ' (C)';
   if (role === 'VC') newName = currentName + ' (VC)';
 
   teamSheet.getRange(targetRow, 2).setValue(newName);
@@ -331,7 +335,7 @@ function handleMarkCaptainVC(body) {
 // ============================================================
 function handleReplacePlayer(body) {
   const { teamName, oldPlayerName, newPlayerName, newPlayerIPLTeam, newPlayerSkill, newPlayerPrice } = body;
-  
+
   if (!teamName || !oldPlayerName || !newPlayerName) {
     return createErrorResponse('Missing required fields for replacement');
   }
@@ -340,7 +344,7 @@ function handleReplacePlayer(body) {
   const teamSheet = ss.getSheetByName(teamName);
   const playersSheet = ss.getSheetByName('Players');
   const transferLogSheet = ss.getSheetByName('Transfer_Log');
-  
+
   if (!teamSheet || !playersSheet) {
     return createErrorResponse('Required sheets not found');
   }
@@ -361,24 +365,14 @@ function handleReplacePlayer(body) {
     return createErrorResponse(`Old player not found in team: ${oldPlayerName}`);
   }
 
-  // Mark old player as replaced
-  teamSheet.getRange(oldRowIdx, 2).setValue(oldPlayerName + ' 🔴 REPLACED');
+  // Update the row to include both old and new player names
+  const combinedName = oldPlayerName + ' / ' + newPlayerName;
+  teamSheet.getRange(oldRowIdx, 2).setValue(combinedName);
 
-  // Find next empty row in team sheet
-  let newRowIdx = teamSheet.getLastRow() + 1;
-  const newSno = teamSheet.getRange(oldRowIdx, 1).getValue(); // keep same serial or append new
-  
-  // Create empty array for new row (Sno, Name, IPL, Skill, Price, League Pts, M1..M18)
-  const newRowData = new Array(24).fill('');
-  newRowData[0] = newRowIdx - 1; // Auto increment sno
-  newRowData[1] = newPlayerName;
-  newRowData[2] = newPlayerIPLTeam || '';
-  newRowData[3] = newPlayerSkill || '';
-  newRowData[4] = newPlayerPrice || 0;
-  newRowData[5] = 0; // Initial league points
-  for (let i = 6; i < 24; i++) newRowData[i] = 0; // Initialize match points to 0
-
-  teamSheet.getRange(newRowIdx, 1, 1, 24).setValues([newRowData]);
+  // Update player details for the new player in the same row
+  if (newPlayerIPLTeam) teamSheet.getRange(oldRowIdx, 3).setValue(newPlayerIPLTeam);
+  if (newPlayerSkill) teamSheet.getRange(oldRowIdx, 4).setValue(newPlayerSkill);
+  if (newPlayerPrice) teamSheet.getRange(oldRowIdx, 5).setValue(newPlayerPrice);
 
   // Log to Transfer_Log
   if (transferLogSheet) {
@@ -394,7 +388,7 @@ function handleReplacePlayer(body) {
 
   // Ensure new player in Players sheet is marked as picked
   // (Assuming Players sheet has columns where team is stored, for now skip complex sync)
-  
+
   return createResponse({
     success: true,
     teamName,
@@ -410,18 +404,18 @@ function handleAddMatch(body) {
   const { teamA, teamB, date, venue, status } = body;
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let matchesSheet = ss.getSheetByName('Matches');
-  
+
   if (!matchesSheet) {
     // Create sheet if doesn't exist
     matchesSheet = ss.insertSheet('Matches');
     matchesSheet.appendRow(['Match ID', 'Team A', 'Team B', 'Date', 'Venue', 'Status', 'Winner', 'Margin']);
   }
-  
+
   const matchId = new Date().getTime();
   matchesSheet.appendRow([
     matchId, teamA, teamB, date, venue, status || 'upcoming', '', ''
   ]);
-  
+
   return createResponse({ success: true, matchId, teamA, teamB, date });
 }
 
@@ -432,19 +426,19 @@ function handleUpdateMatchResult(body) {
   const { matchId, winner, margin, matchPoints } = body;
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const matchesSheet = ss.getSheetByName('Matches');
-  
+
   if (!matchesSheet) return createErrorResponse('Matches sheet not found');
-  
+
   const data = matchesSheet.getDataRange().getValues();
   let rowIndex = -1;
-  
+
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] == matchId || data[i][3] == matchId) { // matchId or Date fallback
       rowIndex = i + 1;
       break;
     }
   }
-  
+
   if (rowIndex > -1) {
     matchesSheet.getRange(rowIndex, 6).setValue('completed');
     matchesSheet.getRange(rowIndex, 7).setValue(winner || '');
@@ -453,7 +447,7 @@ function handleUpdateMatchResult(body) {
 
   // Update player points if provided
   // (In a real scenario, this would loop through all teams and update specific match cols, but for now we rely on the manual entry feature or extended logic)
-  
+
   return createResponse({ success: true, matchId, winner });
 }
 
@@ -464,10 +458,10 @@ function handleGetMatches(body) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const matchesSheet = ss.getSheetByName('Matches');
   if (!matchesSheet) return createResponse({ matches: [] });
-  
+
   const data = matchesSheet.getDataRange().getValues();
   const matches = [];
-  
+
   for (let i = 1; i < data.length; i++) {
     matches.push({
       matchId: data[i][0],
@@ -480,7 +474,7 @@ function handleGetMatches(body) {
       margin: data[i][7]
     });
   }
-  
+
   return createResponse({ matches });
 }
 
@@ -491,10 +485,10 @@ function handleGetAvailablePlayers(body) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const playersSheet = ss.getSheetByName('Players');
   if (!playersSheet) return createErrorResponse('Players sheet not found');
-  
+
   const data = playersSheet.getDataRange().getValues();
   const available = [];
-  
+
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (!row[1]) continue;
@@ -509,7 +503,7 @@ function handleGetAvailablePlayers(body) {
       });
     }
   }
-  
+
   return createResponse({ players: available });
 }
 
@@ -561,11 +555,11 @@ function getMatchInfoByTeamAndMatchNumber(fantasyTeam, matchNumber) {
 // ACTION 9: getPlayerMatchHistory
 function handleGetPlayerMatchHistory(body) {
   const { playerName, teamName } = body;
-  
+
   if (!playerName) return createErrorResponse('Missing playerName');
-  
+
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  
+
   // Find which team the player belongs to
   let targetTeam = teamName;
   if (!targetTeam) {
@@ -587,13 +581,13 @@ function handleGetPlayerMatchHistory(body) {
       if (targetTeam) break;
     }
   }
-  
+
   if (!targetTeam) return createErrorResponse(`Player not found: ${playerName}`);
-  
+
   // Get player's data from team sheet
   const teamSheet = ss.getSheetByName(targetTeam);
   const teamData = teamSheet.getDataRange().getValues();
-  
+
   let playerRow = null;
   let playerFullName = null;
   for (let i = 1; i < teamData.length; i++) {
@@ -606,41 +600,41 @@ function handleGetPlayerMatchHistory(body) {
       }
     }
   }
-  
+
   if (!playerRow) return createErrorResponse(`Player data not found`);
-  
+
   // Get live scores for current match status
   let liveScores = null;
-  
+
   // Build match history with opponent info
   const matchHistory = [];
   const isCaptain = playerFullName.includes('(C)') && !playerFullName.includes('(VC)');
   const isViceCaptain = playerFullName.includes('(VC)');
-  
+
   for (let matchIdx = 0; matchIdx < 18; matchIdx++) {
     const matchPoints = playerRow[6 + matchIdx] || 0;
     const matchNumber = matchIdx + 1;
-    
+
     // Get opponent info from schedule
     const matchInfo = getMatchInfoByTeamAndMatchNumber(targetTeam, matchNumber);
-    
+
     // Check if this match is currently live
     let isLive = false;
     let liveStatus = null;
     if (liveScores && matchInfo) {
       // Compare match IDs or teams to determine if this is the live match
       // This logic depends on the live API response structure
-      isLive = liveScores.status === 'live' && 
-               (liveScores.team1?.toLowerCase().includes(matchInfo.opponentIPL?.toLowerCase()) ||
-                liveScores.team2?.toLowerCase().includes(matchInfo.opponentIPL?.toLowerCase()));
+      isLive = liveScores.status === 'live' &&
+        (liveScores.team1?.toLowerCase().includes(matchInfo.opponentIPL?.toLowerCase()) ||
+          liveScores.team2?.toLowerCase().includes(matchInfo.opponentIPL?.toLowerCase()));
       if (isLive) {
         liveStatus = liveScores;
       }
     }
-    
+
     const multiplier = isCaptain ? 2 : (isViceCaptain ? 1.5 : 1);
     const leaguePoints = Math.round(matchPoints * multiplier * 10) / 10;
-    
+
     matchHistory.push({
       matchNumber: matchNumber,
       matchIndex: matchIdx,
@@ -656,12 +650,12 @@ function handleGetPlayerMatchHistory(body) {
       liveUpdate: liveStatus
     });
   }
-  
+
   // Calculate statistics
   const completedMatches = matchHistory.filter(m => m.status === 'completed' && m.matchPoints > 0);
   const totalPoints = matchHistory.reduce((sum, m) => sum + m.leaguePoints, 0);
   const averagePoints = completedMatches.length > 0 ? totalPoints / completedMatches.length : 0;
-  
+
   return createResponse({
     success: true,
     player: {
@@ -684,27 +678,27 @@ function handleGetPlayerMatchHistory(body) {
 // ACTION 10: searchPlayers
 function handleSearchPlayers(body) {
   const { searchTerm, minPoints, maxPoints, fantasyTeam, iplTeam, skill } = body;
-  
+
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const allTeams = Object.keys(FANTASY_TO_IPL);
-  
+
   const results = [];
-  
+
   for (const team of allTeams) {
     const teamSheet = ss.getSheetByName(team);
     if (!teamSheet) continue;
-    
+
     const data = teamSheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       if (!row[1]) continue;
-      
+
       const playerName = row[1].toString();
       const cleanName = getCleanName(playerName);
       const playerPoints = row[5] || 0;
       const playerIPLTeam = row[2] || '';
       const playerSkill = row[3] || '';
-      
+
       // Apply filters
       let matches = true;
       if (fantasyTeam && fantasyTeam !== team) matches = false;
@@ -717,7 +711,7 @@ function handleSearchPlayers(body) {
         const nameLower = cleanName.toLowerCase();
         if (!nameLower.includes(searchLower)) matches = false;
       }
-      
+
       if (matches) {
         results.push({
           name: cleanName,
@@ -733,11 +727,50 @@ function handleSearchPlayers(body) {
       }
     }
   }
-  
+
   return createResponse({
     success: true,
     players: results,
     total: results.length
+  });
+}
+
+// ============================================================
+// ACTION 11: undoReplace - Revert a replaced player's name
+// ============================================================
+function handleUndoReplace(body) {
+  const { teamName, currentName, originalName } = body;
+
+  if (!teamName || !currentName || !originalName) {
+    return createErrorResponse('Missing required fields for undo replace');
+  }
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const teamSheet = ss.getSheetByName(teamName);
+  if (!teamSheet) return createErrorResponse(`Sheet not found: ${teamName}`);
+
+  const data = teamSheet.getDataRange().getValues();
+  const targetName = normalizeName(currentName);
+  let targetRowIdx = -1;
+
+  for (let i = 1; i < data.length; i++) {
+    if (!data[i][1]) continue;
+    if (normalizeName(getCleanName(data[i][1].toString())) === targetName) {
+      targetRowIdx = i + 1;
+      break;
+    }
+  }
+
+  if (targetRowIdx === -1) {
+    return createErrorResponse(`Player not found: ${currentName}`);
+  }
+
+  teamSheet.getRange(targetRowIdx, 2).setValue(originalName);
+
+  return createResponse({
+    success: true,
+    teamName,
+    restoredPlayer: originalName
   });
 }
 

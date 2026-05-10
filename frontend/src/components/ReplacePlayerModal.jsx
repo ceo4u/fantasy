@@ -99,7 +99,7 @@ export default function ReplacePlayerModal({ open, onClose, teamName, oldPlayerN
                 <div className="px-4 py-3 bg-red-900/10 border border-red-900/30 rounded-xl flex items-center justify-between">
                   <div>
                     <div className="font-semibold text-white">{oldPlayerName}</div>
-                    <div className="text-[10px] text-red-400 font-medium mt-1">This player will be removed from team and moved to Transfer Log.</div>
+                    <div className="text-[10px] text-red-400 font-medium mt-1">This player will be replaced. The table will show Old / New Player.</div>
                   </div>
                 </div>
               </div>

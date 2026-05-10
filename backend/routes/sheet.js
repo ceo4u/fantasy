@@ -7,8 +7,8 @@ const SHEET_ID = '1VbkAdMPIj4nd-a9VaQVIr1E5s_DSq8hJmujGBSVhnqA';
 const MATCH_LABELS = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','Q1','EL','Q2','F'];
 
 async function fetchGvizRaw(tabName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
-  const res = await fetch(url);
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&_cb=${Date.now()}`;
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) return null;
   const text = await res.text();
   try {
@@ -88,7 +88,7 @@ router.get('/rankings', async (req, res, next) => {
         const rows = teamParsed.table.rows;
         let liveTotal = 0;
         rows
-          .filter(r => r.c[1]?.v && typeof r.c[0]?.v === 'number')
+          .filter(r => r.c[1]?.v && typeof r.c[0]?.v === 'number' && !String(r.c[1].v).includes('🔴 REPLACED'))
           .forEach(r => {
             const rawName = String(r.c[1].v).trim();
             const isC  = /\(C\)/.test(rawName) && !/\(VC\)/.test(rawName);
@@ -124,7 +124,7 @@ router.get('/squad/:teamName', async (req, res, next) => {
     const rows = parsed.table.rows;
 
     const players = rows
-      .filter(r => r.c[1]?.v && typeof r.c[0]?.v === 'number')
+      .filter(r => r.c[1]?.v && typeof r.c[0]?.v === 'number' && !String(r.c[1].v).includes('🔴 REPLACED'))
       .map(r => {
         const rawName   = String(r.c[1].v).trim();
         const isC       = /\(C\)/.test(rawName) && !/\(VC\)/.test(rawName);
@@ -205,6 +205,17 @@ router.post('/replace-player', authMiddleware, async (req, res, next) => {
     const { teamName, oldPlayerName, newPlayerName, newPlayerIPLTeam, newPlayerSkill, newPlayerPrice } = req.body;
     if (!teamName || !oldPlayerName || !newPlayerName) return res.status(400).json({ error: 'Missing required fields' });
     const result = await callScript({ action: 'replacePlayer', teamName, oldPlayerName, newPlayerName, newPlayerIPLTeam, newPlayerSkill, newPlayerPrice });
+    if (!result.success) return res.status(400).json({ error: result.error || 'Apps Script error' });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+// POST /api/sheet/undo-replace  (admin only)
+router.post('/undo-replace', authMiddleware, async (req, res, next) => {
+  try {
+    const { teamName, currentName, originalName } = req.body;
+    if (!teamName || !currentName || !originalName) return res.status(400).json({ error: 'Missing required fields' });
+    const result = await callScript({ action: 'undoReplace', teamName, currentName, originalName });
     if (!result.success) return res.status(400).json({ error: result.error || 'Apps Script error' });
     res.json(result);
   } catch (err) { next(err); }

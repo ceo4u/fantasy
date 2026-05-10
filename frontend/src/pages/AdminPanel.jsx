@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Save, CheckCircle, AlertCircle, Loader, ShieldOff, RefreshCw, AlertTriangle, Users, Clock, Zap, Crown, Shield, UserX } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSquad, useRankings } from '../hooks/usePlayers';
-import { updateMatchPoints, markCaptainVC } from '../utils/api';
+import { updateMatchPoints, markCaptainVC, undoReplace } from '../utils/api';
 import ReplacePlayerModal from '../components/ReplacePlayerModal';
 
 const IPL_COLORS = {
@@ -74,7 +74,7 @@ const MatchCell = ({ value, originalValue, onChange, disabled }) => {
 };
 
 // ─── Player Row ───────────────────────────────────────────────────────────────
-const PlayerRow = ({ player, rowIdx, matchLabels, draft, savingRows, savedRows, markingRows, teamName, onCellChange, onSaveRow, onMarkRole, onReplaceClick }) => {
+const PlayerRow = ({ player, rowIdx, matchLabels, draft, savingRows, savedRows, markingRows, teamName, onCellChange, onSaveRow, onMarkRole, onReplaceClick, onUndoReplaceClick }) => {
   const ipl     = IPL_COLORS[player.iplTeam] || { bg: '#333', text: '#fff' };
   const saving  = savingRows.has(player.sno);
   const saved   = savedRows.has(player.sno);
@@ -117,6 +117,15 @@ const PlayerRow = ({ player, rowIdx, matchLabels, draft, savingRows, savedRows, 
               >
                 <UserX size={10} /> Replace
               </button>
+              {player.name.includes('/') && (
+                <button 
+                  onClick={() => onUndoReplaceClick(player.name)}
+                  className="ml-1 flex items-center gap-1 text-[9px] font-semibold text-orange-400 hover:text-orange-300 bg-orange-900/20 border border-orange-900/30 px-1.5 py-0.5 rounded transition"
+                  title="Undo Replace"
+                >
+                  <RefreshCw size={10} /> Undo
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -256,6 +265,19 @@ function TeamMatchEditor({ teamName, addToast }) {
     }
   }, [squad, teamName, addToast, refetch]);
 
+  const handleUndoReplace = useCallback(async (currentName) => {
+    const originalName = currentName.split('/')[0].trim();
+    if (!confirm(`Are you sure you want to undo replace and revert to ${originalName}?`)) return;
+    
+    try {
+      await undoReplace(teamName, currentName, originalName);
+      addToast(`Successfully restored ${originalName}`, 'success');
+      refetch();
+    } catch (err) {
+      addToast(`Error: ${err.response?.data?.error || err.message}`, 'error');
+    }
+  }, [teamName, addToast, refetch]);
+
   const dirtyCount = useMemo(() => {
     if (!drafts || !squad) return 0;
     return squad.players.filter((p, i) => drafts[i]?.some((v, j) => Number(v) !== Number(p.matchPoints[j]))).length;
@@ -320,23 +342,23 @@ function TeamMatchEditor({ teamName, addToast }) {
 
       {/* Table */}
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="overflow-auto max-h-[60vh] custom-scrollbar scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
           <table className="w-full" style={{ minWidth: 1000 }}>
-            <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.015]">
-                <th className="sticky left-0 z-20 px-3 py-2.5 text-left bg-[#111] min-w-[200px]">
+            <thead className="sticky top-0 z-30 shadow-md">
+              <tr className="border-b border-white/[0.06] bg-[#111]">
+                <th className="sticky left-0 top-0 z-40 px-3 py-2.5 text-left bg-[#111] min-w-[200px] border-b border-white/[0.06]">
                   <span className="label text-[10px]">Player <span className="text-white/20 font-normal">(click C/VC to assign)</span></span>
                 </th>
                 {matchLabels.map((lbl, i) => (
-                  <th key={i} className="px-0.5 py-2.5 text-center min-w-[52px]">
+                  <th key={i} className="sticky top-0 z-30 px-0.5 py-2.5 text-center min-w-[52px] bg-[#111] border-b border-white/[0.06]">
                     <span className={`text-[9px] font-bold px-1 py-0.5 rounded
                       ${['Q1','EL','Q2','F'].includes(lbl) ? 'bg-purple-900/40 text-purple-300' : 'bg-[#F5C518]/10 text-[#F5C518]'}`}>
                       {lbl}
                     </span>
                   </th>
                 ))}
-                <th className="sticky right-[68px] z-20 px-3 py-2.5 text-right bg-[#111] min-w-[70px]"><span className="label text-[10px]">Total</span></th>
-                <th className="sticky right-0 z-20 px-2 py-2.5 bg-[#111] w-[68px]"><span className="label text-[10px]">Save</span></th>
+                <th className="sticky right-[68px] top-0 z-40 px-3 py-2.5 text-right bg-[#111] min-w-[70px] border-b border-white/[0.06]"><span className="label text-[10px]">Total</span></th>
+                <th className="sticky right-0 top-0 z-40 px-2 py-2.5 bg-[#111] w-[68px] border-b border-white/[0.06]"><span className="label text-[10px]">Save</span></th>
               </tr>
             </thead>
             <tbody>
@@ -345,18 +367,19 @@ function TeamMatchEditor({ teamName, addToast }) {
                   draft={drafts[ri] || p.matchPoints} savingRows={savingRows} savedRows={savedRows}
                   markingRows={markingRows} teamName={teamName}
                   onCellChange={handleCellChange} onSaveRow={handleSaveRow} onMarkRole={handleMarkRole}
-                  onReplaceClick={(name) => { setPlayerToReplace(name); setReplaceModalOpen(true); }} />
+                  onReplaceClick={(name) => { setPlayerToReplace(name); setReplaceModalOpen(true); }} 
+                  onUndoReplaceClick={handleUndoReplace} />
               ))}
             </tbody>
-            <tfoot>
-              <tr className="border-t border-white/[0.07] bg-white/[0.015]">
-                <td className="sticky left-0 z-10 px-3 py-2.5 bg-[#111]"><span className="label text-[#F5C518] text-[10px]">Team Total</span></td>
+            <tfoot className="sticky bottom-0 z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.5)]">
+              <tr className="border-t border-white/[0.07] bg-[#111]">
+                <td className="sticky left-0 bottom-0 z-40 px-3 py-2.5 bg-[#111] border-t border-white/[0.07]"><span className="label text-[#F5C518] text-[10px]">Team Total</span></td>
                 {matchLabels.map((_, i) => {
                   const colTotal = players.reduce((s, p, ri) => s + (Number(drafts[ri]?.[i]) || 0), 0);
-                  return <td key={i} className="px-0.5 py-2.5 text-center"><span className={`text-[10px] font-bold font-mono ${colTotal > 0 ? 'text-white/45' : 'text-white/10'}`}>{colTotal > 0 ? colTotal : '—'}</span></td>;
+                  return <td key={i} className="sticky bottom-0 z-30 px-0.5 py-2.5 text-center bg-[#111] border-t border-white/[0.07]"><span className={`text-[10px] font-bold font-mono ${colTotal > 0 ? 'text-white/45' : 'text-white/10'}`}>{colTotal > 0 ? colTotal : '—'}</span></td>;
                 })}
-                <td className="sticky right-[68px] z-10 px-3 py-2.5 text-right bg-[#111]"><span className="text-sm font-black font-mono text-[#F5C518]">{grandTotal.toLocaleString()}</span></td>
-                <td className="sticky right-0 z-10 bg-[#111]"/>
+                <td className="sticky right-[68px] bottom-0 z-40 px-3 py-2.5 text-right bg-[#111] border-t border-white/[0.07]"><span className="text-sm font-black font-mono text-[#F5C518]">{grandTotal.toLocaleString()}</span></td>
+                <td className="sticky right-0 bottom-0 z-40 bg-[#111] border-t border-white/[0.07]"/>
               </tr>
             </tfoot>
           </table>
