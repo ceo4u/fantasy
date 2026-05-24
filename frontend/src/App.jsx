@@ -11,7 +11,8 @@ import SquadMatchView from './pages/SquadMatchView';
 import AdminPanel     from './pages/AdminPanel';
 import MatchManagement  from './pages/MatchManagement';
 import PlayerSearch   from './pages/PlayerSearch';
-import { LayoutDashboard, Trophy, Users, Shield, Calendar, Search } from 'lucide-react';
+import CompareTeams   from './pages/CompareTeams';
+import { LayoutDashboard, Trophy, Users, Shield, Calendar, Search, Scale } from 'lucide-react';
 
 // ── Mobile bottom nav ─────────────────────────────────────────────────────────
 function BottomNav() {
@@ -19,6 +20,7 @@ function BottomNav() {
   const items = [
     { to: '/',         label: 'Home',     icon: LayoutDashboard },
     { to: '/rankings', label: 'Rankings', icon: Trophy },
+    { to: '/compare',  label: 'Compare',  icon: Scale },
     { to: '/squads',   label: 'Squads',   icon: Users },
     ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: Shield }] : []),
   ];
@@ -31,7 +33,7 @@ function BottomNav() {
           className={({ isActive }) =>
             `flex flex-col items-center gap-1 px-4 py-1.5 transition-all
             ${isActive ? 'text-[#F5C518]' : 'text-white/30 hover:text-white/60'}`}>
-          <Icon size={20}/>
+          <Icon size={18}/>
           <span className="text-[10px] font-semibold tracking-wide uppercase">{label}</span>
         </NavLink>
       ))}
@@ -73,6 +75,7 @@ function Layout() {
             <Route path="/squads"                    element={<SquadsPage/>}/>
             <Route path="/squads/:teamSlug"          element={<SquadMatchView/>}/>
             <Route path="/squad/:teamSlug"           element={<SquadMatchView/>}/>  {/* legacy */}
+            <Route path="/compare"                   element={<CompareTeams/>}/>
             <Route path="/admin"                     element={<AdminPanel/>}/>
             <Route path="/matches"                   element={<MatchManagement/>}/>
             <Route path="/player-search"             element={<PlayerSearch/>}/>

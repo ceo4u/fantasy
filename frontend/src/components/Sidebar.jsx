@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Trophy, Users, Shield, X, Calendar, ClipboardList, Search } from 'lucide-react';
+import { LayoutDashboard, Trophy, Users, Shield, X, Search, Scale } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const baseLinks = [
   { to: '/',         label: 'Dashboard', icon: LayoutDashboard },
   { to: '/player-search', label: 'Player Search', icon: Search },
+  { to: '/compare',  label: 'Compare Teams', icon: Scale },
   { to: '/rankings', label: 'Rankings',  icon: Trophy },
   { to: '/squads',   label: 'Squads',    icon: Users },
 ];
@@ -14,9 +15,7 @@ export default function Sidebar({ mobile, onClose }) {
   const navItems = isAdmin
     ? [
         ...baseLinks, 
-        { to: '/matches', label: 'Matches', icon: Calendar },
-        { to: '/admin', label: 'Admin', icon: Shield },
-        { to: '/transfer-log', label: 'Transfer Log', icon: ClipboardList }
+        { to: '/admin', label: 'Admin', icon: Shield }
       ]
     : baseLinks;
 
