@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Users, RefreshCw, ChevronRight, Zap, Scale, CheckCircle2, Shield, Crown, HelpCircle } from 'lucide-react';
 import { useRankings } from '../hooks/usePlayers';
 import { fetchSquad } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 
 const RANK_EMOJI = ['🥇','🥈','🥉'];
 
@@ -47,13 +48,15 @@ export default function SquadsPage() {
   const navigate = useNavigate();
   const { rankings, loading, error, refetch } = useRankings();
 
-  // Match Mode & Filtering States
-  const [matchMode, setMatchMode] = useState(false);
-  const [teamAFilter, setTeamAFilter] = useState('');
-  const [teamBFilter, setTeamBFilter] = useState('');
+  // Match Mode & Filtering States (from Global Context)
+  const {
+    matchMode, setMatchMode,
+    teamAFilter, setTeamAFilter,
+    teamBFilter, setTeamBFilter,
+    selectedFantasyTeams, setSelectedFantasyTeams
+  } = useAuth();
   const [allSquadsPlayers, setAllSquadsPlayers] = useState({});
   const [loadingPlayers, setLoadingPlayers] = useState(false);
-  const [selectedFantasyTeams, setSelectedFantasyTeams] = useState([]);
 
   // Fetch squad details for all teams when Match Mode is enabled
   useEffect(() => {
@@ -69,7 +72,7 @@ export default function SquadsPage() {
           map[res.team] = res.data;
         });
         setAllSquadsPlayers(map);
-        setSelectedFantasyTeams(rankings.map(r => r.team));
+        setSelectedFantasyTeams([]); // Start completely unselected as requested
       } catch (err) {
         console.error('Failed to load all squad players', err);
       } finally {
@@ -169,7 +172,7 @@ export default function SquadsPage() {
             exit={{ opacity: 0, height: 0 }}
             className="card border border-[#F5C518]/15 bg-gradient-to-r from-[#181812] to-[#11110B] p-5 rounded-xl space-y-4 overflow-hidden shadow-xl"
           >
-            <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex justify-between items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-[#F5C518]/10 flex items-center justify-center border border-[#F5C518]/25 text-[#F5C518]">
                   <Scale size={14} />
@@ -178,36 +181,6 @@ export default function SquadsPage() {
                   <h4 className="text-xs font-bold text-white">Live Fixture Comparison</h4>
                   <p className="text-[10px] text-white/35">Compare players playing in original IPL fixtures side-by-side</p>
                 </div>
-              </div>
-
-              {/* IPL Team A Select */}
-              <div className="flex flex-col gap-1 min-w-[130px]">
-                <span className="text-[9px] uppercase font-black text-white/40 tracking-wider">IPL Team A</span>
-                <select
-                  value={teamAFilter}
-                  onChange={e => setTeamAFilter(e.target.value)}
-                  className="bg-[#0C0C0C] border border-white/10 hover:border-white/20 focus:border-[#F5C518] rounded-lg text-xs px-2.5 py-1.5 text-white font-semibold outline-none transition cursor-pointer"
-                >
-                  <option value="">-- Select Team --</option>
-                  {Object.keys(IPL_COLORS).map(team => (
-                    <option key={team} value={team} disabled={team === teamBFilter}>{team}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* IPL Team B Select */}
-              <div className="flex flex-col gap-1 min-w-[130px]">
-                <span className="text-[9px] uppercase font-black text-white/40 tracking-wider">IPL Team B</span>
-                <select
-                  value={teamBFilter}
-                  onChange={e => setTeamBFilter(e.target.value)}
-                  className="bg-[#0C0C0C] border border-white/10 hover:border-white/20 focus:border-[#F5C518] rounded-lg text-xs px-2.5 py-1.5 text-white font-semibold outline-none transition cursor-pointer"
-                >
-                  <option value="">-- Select Team --</option>
-                  {Object.keys(IPL_COLORS).map(team => (
-                    <option key={team} value={team} disabled={team === teamAFilter}>{team}</option>
-                  ))}
-                </select>
               </div>
             </div>
 
@@ -320,9 +293,17 @@ export default function SquadsPage() {
                 </p>
               </div>
             </div>
+          {matchMode && (teamAFilter || teamBFilter) && selectedFantasyTeams.length === 0 && (
+            <div className="card py-16 text-center border border-dashed border-white/10 bg-white/[0.01]">
+              <Users size={28} className="mx-auto text-white/20 mb-3 animate-pulse" />
+              <h3 className="text-sm font-bold text-white/80">No Fantasy Squads Selected</h3>
+              <p className="text-xs text-white/35 mt-1 max-w-xs mx-auto">
+                Please select one or more fantasy squads in the comparison helper above to compare their rosters side-by-side.
+              </p>
+            </div>
           )}
 
-          {matchMode && (teamAFilter || teamBFilter) && (
+          {matchMode && (teamAFilter || teamBFilter) && selectedFantasyTeams.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {parsedSquadMatchups.map(squadMatch => {
                 const { teamName, players: matchedPlayers, countA, countB, rankInfo } = squadMatch;

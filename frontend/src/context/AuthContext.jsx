@@ -71,6 +71,12 @@ export function AuthProvider({ children }) {
     };
   }, [logout, scheduleAutoLogout]);
 
+  // ── Global Live Match Mode States ─────────────────────────────────────────
+  const [matchMode, setMatchMode] = useState(false);
+  const [teamAFilter, setTeamAFilter] = useState('');
+  const [teamBFilter, setTeamBFilter] = useState('');
+  const [selectedFantasyTeams, setSelectedFantasyTeams] = useState([]);
+
   // ── Login ─────────────────────────────────────────────────────────────────
   async function login(username, password) {
     const { data } = await api.post('/auth/login', { username, password });
@@ -83,7 +89,13 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ isAdmin, login, logout, loading }}>
+    <AuthContext.Provider value={{
+      isAdmin, login, logout, loading,
+      matchMode, setMatchMode,
+      teamAFilter, setTeamAFilter,
+      teamBFilter, setTeamBFilter,
+      selectedFantasyTeams, setSelectedFantasyTeams
+    }}>
       {children}
     </AuthContext.Provider>
   );

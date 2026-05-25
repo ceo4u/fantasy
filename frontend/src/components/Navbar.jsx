@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function Navbar({ onAdminClick, onMenuClick }) {
-  const { isAdmin, logout } = useAuth();
+  const { isAdmin, logout, matchMode, setMatchMode } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -40,6 +40,20 @@ export default function Navbar({ onAdminClick, onMenuClick }) {
 
       {/* ── Right: auth controls ── */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* Global Live Match Toggle Button */}
+        <button
+          onClick={() => setMatchMode(!matchMode)}
+          className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold tracking-wider uppercase transition flex items-center gap-1.5 border duration-150 active:scale-95 ${
+            matchMode
+              ? 'bg-[#F5C518]/15 text-[#F5C518] border-[#F5C518]/30 shadow-[0_0_12px_rgba(245,197,24,0.15)]'
+              : 'bg-white/[0.03] text-white/50 border-white/[0.08] hover:text-white hover:bg-white/5 hover:border-white/15'
+          }`}
+          title="Toggle Global Live Match Mode"
+        >
+          <Zap size={12} className={matchMode ? 'fill-current' : ''} />
+          <span className="hidden xs:inline">Live Match</span>
+        </button>
+
         {isAdmin ? (
           <>
             {/* Admin badge — visible on sm+ */}
