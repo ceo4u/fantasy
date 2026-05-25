@@ -290,6 +290,7 @@ export default function SquadsPage() {
                 <h3 className="text-sm font-bold text-white/80">Configure Original IPL Fixture</h3>
                 <p className="text-xs text-white/35 mt-1 max-w-xs mx-auto">
                   Select Team A and Team B (e.g. MI & RR) in the selector panel above to display matched player rosters across your fantasy leagues.
+                </p>
               </div>
             </div>
           )}
