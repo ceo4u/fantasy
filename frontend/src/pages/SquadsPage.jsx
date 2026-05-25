@@ -5,6 +5,7 @@ import { Users, RefreshCw, ChevronRight, Zap, Scale, CheckCircle2, Shield, Crown
 import { useRankings } from '../hooks/usePlayers';
 import { fetchSquad } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import LiveMatchBar from '../components/LiveMatchBar';
 
 const RANK_EMOJI = ['🥇','🥈','🥉'];
 
@@ -162,6 +163,8 @@ export default function SquadsPage() {
           </button>
         </div>
       </div>
+
+      <LiveMatchBar />
 
       {/* ── Match Mode Controls Panel ── */}
       <AnimatePresence>

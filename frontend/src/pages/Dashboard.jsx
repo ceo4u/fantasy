@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Users, TrendingUp, Star, RefreshCw, Search, X } from 'lucide-react';
 import { usePlayers } from '../hooks/usePlayers';
+import LiveMatchBar from '../components/LiveMatchBar';
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.025 } } };
 const row     = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: 0.2 } } };
@@ -69,6 +70,8 @@ export default function Dashboard() {
           <RefreshCw size={15} className={loading ? 'animate-spin text-[#F5C518]' : ''} />
         </button>
       </div>
+
+      <LiveMatchBar />
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
