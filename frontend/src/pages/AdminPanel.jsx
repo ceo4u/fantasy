@@ -95,8 +95,9 @@ const PlayerRow = ({ player, rowIdx, matchLabels, draft, savingRows, savedRows, 
       {/* Player info + C/VC buttons */}
       <td className="sticky left-0 z-10 px-3 py-2 bg-[#111] min-w-[200px]">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 shadow-sm"
-               style={{ background: ipl.bg, color: ipl.text }}>{player.sno}</div>
+          <span className="text-[11px] font-mono font-bold text-white/30 min-w-[18px] text-left shrink-0">
+            {player.sno}.
+          </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1 flex-wrap">
               <span className="text-[11px] font-semibold text-white truncate leading-tight">{player.name}</span>
@@ -958,8 +959,8 @@ function UnifiedFixtureEditor({ rankings, addToast }) {
                     {/* Athlete info */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="w-6.5 h-6.5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm" style={{ background: iplColor.bg, color: iplColor.text }}>
-                          {idx + 1}
+                        <span className="text-[11px] font-mono font-bold text-white/30 min-w-[18px] text-left shrink-0">
+                          {idx + 1}.
                         </span>
                         <div className="min-w-0">
                           <span className="text-xs font-semibold text-white truncate block">{p.name}</span>
