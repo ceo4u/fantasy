@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRankings } from '../hooks/usePlayers';
-import LiveMatchBar from '../components/LiveMatchBar';
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function SkeletonCard() {
@@ -393,8 +392,6 @@ export default function Rankings() {
           <RefreshCw size={15} className={loading ? 'animate-spin text-[#F5C518]' : ''} />
         </button>
       </div>
-
-      <LiveMatchBar />
 
       {/* Loading */}
       {loading && (
