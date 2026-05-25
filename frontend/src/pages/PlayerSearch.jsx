@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Filter, X, Calendar, MapPin, Trophy, 
@@ -7,13 +6,8 @@ import {
   Loader2, ChevronDown, ChevronUp, Clock
 } from 'lucide-react';
 import { fetchSheet, getPlayerMatchHistory as apiGetPlayerMatchHistory } from '../utils/api';
-import { useAuth } from '../context/AuthContext';
-import LiveMatchBar from '../components/LiveMatchBar';
-import { Zap } from 'lucide-react';
 
 export default function PlayerSearch() {
-  const navigate = useNavigate();
-  const { matchMode, setMatchMode } = useAuth();
   const [allPlayers, setAllPlayers] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   
@@ -155,32 +149,7 @@ export default function PlayerSearch() {
             Search players and view their complete match-wise performance with opponent details
           </p>
         </div>
-        
-        {/* Toggle Tab */}
-        <div className="flex items-center gap-2 bg-[#141414] border border-white/5 p-1 rounded-xl w-fit shrink-0 self-end sm:self-auto">
-          <button
-            onClick={() => setMatchMode(false)}
-            className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition ${
-              !matchMode ? 'bg-white/10 text-white shadow-md' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-            }`}
-          >
-            All Players
-          </button>
-          <button
-            onClick={() => {
-              setMatchMode(true);
-              navigate('/squads');
-            }}
-            className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition flex items-center gap-1.5 ${
-              matchMode ? 'bg-[#F5C518]/15 text-[#F5C518] border border-[#F5C518]/30 shadow-[0_0_12px_rgba(245,197,24,0.15)]' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-            }`}
-          >
-            <Zap size={12} className="fill-current" /> Live Match Mode
-          </button>
-        </div>
       </div>
-
-      <LiveMatchBar />
 
       {/* Search Bar */}
       <div className="relative mb-6 group">

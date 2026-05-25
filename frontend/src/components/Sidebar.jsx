@@ -1,5 +1,5 @@
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Trophy, Users, Shield, X, Search, Scale } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Trophy, Users, Shield, X, Search, Scale, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const baseLinks = [
@@ -7,11 +7,13 @@ const baseLinks = [
   { to: '/player-search', label: 'Player Search', icon: Search },
   { to: '/compare',  label: 'Compare Teams', icon: Scale },
   { to: '/rankings', label: 'Rankings',  icon: Trophy },
-  { to: '/squads',   label: 'Squads',    icon: Users },
+  { to: '/squads',   label: 'Squads',    icon: Users, isSquads: true },
+  { to: '/squads',   label: 'Live Match', icon: Zap, isLiveMatch: true },
 ];
 
 export default function Sidebar({ mobile, onClose }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, matchMode, setMatchMode } = useAuth();
+  const location = useLocation();
   const navItems = isAdmin
     ? [
         ...baseLinks, 
@@ -33,13 +35,33 @@ export default function Sidebar({ mobile, onClose }) {
         <div className="px-4 pt-6 pb-3">
           <p className="label px-3 mb-3">Menu</p>
           <div className="flex flex-col gap-1">
-            {navItems.map(({ to, label, icon: Icon }) => (
-              <NavLink key={to} to={to} end={to === '/'}
-                onClick={mobile ? onClose : undefined}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                <Icon size={16}/>{label}
-              </NavLink>
-            ))}
+            {navItems.map(({ to, label, icon: Icon, isSquads, isLiveMatch }) => {
+              const isActive = isSquads
+                ? (location.pathname === '/squads' && !matchMode)
+                : isLiveMatch
+                ? (location.pathname === '/squads' && matchMode)
+                : (to === '/' ? location.pathname === '/' : location.pathname.startsWith(to));
+
+              const handleClick = () => {
+                if (isSquads) {
+                  setMatchMode(false);
+                } else if (isLiveMatch) {
+                  setMatchMode(true);
+                }
+                if (mobile && onClose) onClose();
+              };
+
+              return (
+                <Link
+                  key={label}
+                  to={to}
+                  onClick={handleClick}
+                  className={`nav-item ${isActive ? 'active' : ''}`}
+                >
+                  <Icon size={16}/>{label}
+                </Link>
+              );
+            })}
           </div>
         </div>
         <div className="flex-1"/>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, NavLink } from 'react-router-dom';
+import { Routes, Route, NavLink, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar         from './components/Navbar';
 import Sidebar        from './components/Sidebar';
@@ -17,27 +17,50 @@ import { LayoutDashboard, Trophy, Users, Shield, Calendar, Search, Scale, Zap, X
 
 // ── Mobile bottom nav ─────────────────────────────────────────────────────────
 function BottomNav() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, matchMode, setMatchMode } = useAuth();
+  const location = useLocation();
+
   const items = [
     { to: '/',         label: 'Home',     icon: LayoutDashboard },
     { to: '/rankings', label: 'Rankings', icon: Trophy },
     { to: '/compare',  label: 'Compare',  icon: Scale },
-    { to: '/squads',   label: 'Squads',   icon: Users },
+    { to: '/squads',   label: 'Squads',   icon: Users, isSquads: true },
+    { to: '/squads',   label: 'Live',     icon: Zap, isLiveMatch: true },
     ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: Shield }] : []),
   ];
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden
                     flex justify-around items-center h-16
                     bg-[#0C0C0C]/98 backdrop-blur-xl border-t border-white/[0.07]">
-      {items.map(({ to, label, icon: Icon }) => (
-        <NavLink key={to} to={to} end={to === '/'}
-          className={({ isActive }) =>
-            `flex flex-col items-center gap-1 px-4 py-1.5 transition-all
-            ${isActive ? 'text-[#F5C518]' : 'text-white/30 hover:text-white/60'}`}>
-          <Icon size={18}/>
-          <span className="text-[10px] font-semibold tracking-wide uppercase">{label}</span>
-        </NavLink>
-      ))}
+      {items.map(({ to, label, icon: Icon, isSquads, isLiveMatch }) => {
+        const isActive = isSquads
+          ? (location.pathname === '/squads' && !matchMode)
+          : isLiveMatch
+          ? (location.pathname === '/squads' && matchMode)
+          : (to === '/' ? location.pathname === '/' : location.pathname.startsWith(to));
+
+        const handleClick = () => {
+          if (isSquads) {
+            setMatchMode(false);
+          } else if (isLiveMatch) {
+            setMatchMode(true);
+          }
+        };
+
+        return (
+          <Link
+            key={label}
+            to={to}
+            onClick={handleClick}
+            className={`flex flex-col items-center gap-1 px-3 py-1.5 transition-all
+            ${isActive ? 'text-[#F5C518]' : 'text-white/30 hover:text-white/60'}`}
+          >
+            <Icon size={18}/>
+            <span className="text-[10px] font-semibold tracking-wide uppercase">{label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

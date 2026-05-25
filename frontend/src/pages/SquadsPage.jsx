@@ -140,27 +140,15 @@ export default function SquadsPage() {
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="label text-[#F5C518] mb-1.5">Season 2025</p>
-          <h1 className="text-2xl font-black text-white tracking-tight">League Squads</h1>
-          <p className="text-sm text-white/30 mt-0.5">Explore full squad details or compare player matches side-by-side</p>
-        </div>
-        <div className="flex items-center gap-2 bg-[#141414] border border-white/5 p-1 rounded-xl w-fit shrink-0">
-          <button
-            onClick={() => setMatchMode(false)}
-            className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition ${
-              !matchMode ? 'bg-white/10 text-white shadow-md' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-            }`}
-          >
-            Full Squads
-          </button>
-          <button
-            onClick={() => setMatchMode(true)}
-            className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition flex items-center gap-1.5 ${
-              matchMode ? 'bg-[#F5C518]/15 text-[#F5C518] border border-[#F5C518]/30 shadow-[0_0_12px_rgba(245,197,24,0.15)]' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-            }`}
-          >
-            <Zap size={12} className="fill-current" /> Live Match Mode
-          </button>
+          <p className="label text-[#F5C518] mb-1.5">{matchMode ? 'Live Match Tracker' : 'Season 2025'}</p>
+          <h1 className="text-2xl font-black text-white tracking-tight">
+            {matchMode ? 'Live Match Mode' : 'League Squads'}
+          </h1>
+          <p className="text-sm text-white/30 mt-0.5">
+            {matchMode 
+              ? 'Compare live player matches side-by-side between two opposing teams' 
+              : 'Explore full squad details or compare player matches side-by-side'}
+          </p>
         </div>
       </div>
 

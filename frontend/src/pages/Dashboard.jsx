@@ -1,11 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, TrendingUp, Star, RefreshCw, Search, X } from 'lucide-react';
 import { usePlayers } from '../hooks/usePlayers';
-import { useAuth } from '../context/AuthContext';
-import LiveMatchBar from '../components/LiveMatchBar';
-import { Zap } from 'lucide-react';
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.025 } } };
 const row     = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: 0.2 } } };
@@ -32,8 +28,6 @@ function SkeletonRow() {
 const SKILLS = ['ALL', 'BAT', 'BOWL', 'WK'];
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-  const { matchMode, setMatchMode } = useAuth();
   const { players, loading, error, refetch } = usePlayers();
   const [search, setSearch]       = useState('');
   const [skill,  setSkill]        = useState('ALL');
@@ -60,48 +54,21 @@ export default function Dashboard() {
     <div className="space-y-6 animate-fade-in">
 
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex items-start justify-between">
         <div>
           <p className="label text-[#F5C518] mb-1.5">Fantasy IPL 2025</p>
           <h1 className="text-2xl font-black text-white tracking-tight">Player Dashboard</h1>
           <p className="text-sm text-white/35 mt-0.5">Live squad data &amp; points</p>
         </div>
-        <div className="flex items-center gap-3 self-end sm:self-auto">
-          {/* Toggle Tab */}
-          <div className="flex items-center gap-2 bg-[#141414] border border-white/5 p-1 rounded-xl w-fit shrink-0">
-            <button
-              onClick={() => setMatchMode(false)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition ${
-                !matchMode ? 'bg-white/10 text-white shadow-md' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-              }`}
-            >
-              Full View
-            </button>
-            <button
-              onClick={() => {
-                setMatchMode(true);
-                navigate('/squads');
-              }}
-              className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition flex items-center gap-1.5 ${
-                matchMode ? 'bg-[#F5C518]/15 text-[#F5C518] border border-[#F5C518]/30 shadow-[0_0_12px_rgba(245,197,24,0.15)]' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-              }`}
-            >
-              <Zap size={12} className="fill-current" /> Live Match Mode
-            </button>
-          </div>
-
-          <button
-            onClick={refetch}
-            disabled={loading}
-            title="Refresh"
-            className="p-2 rounded-lg text-white/25 hover:text-white hover:bg-white/5 border border-white/5 transition-all active:scale-95 shrink-0"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin text-[#F5C518]' : ''} />
-          </button>
-        </div>
+        <button
+          onClick={refetch}
+          disabled={loading}
+          title="Refresh"
+          className="mt-1 p-2 rounded-lg text-white/25 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all shrink-0"
+        >
+          <RefreshCw size={15} className={loading ? 'animate-spin text-[#F5C518]' : ''} />
+        </button>
       </div>
-
-      <LiveMatchBar />
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
