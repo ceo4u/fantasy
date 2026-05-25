@@ -906,23 +906,29 @@ function UnifiedFixtureEditor({ rankings, addToast }) {
 
         {/* Action Button Group */}
         <div className="flex items-center gap-2 sm:ml-auto self-end">
-          {dirtyCount > 0 && (
-            <button
-              onClick={handleSaveAll}
-              className="px-3.5 py-1.5 bg-[#F5C518] hover:bg-[#EDB800] text-black font-extrabold text-[11px] rounded-lg transition-all duration-150 active:scale-95 flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,197,24,0.3)]"
-            >
-              <Save size={12} /> Save All ({dirtyCount})
-            </button>
-          )}
+          <button
+            onClick={handleSaveAll}
+            disabled={dirtyCount === 0}
+            className={`px-3.5 py-1.5 font-extrabold text-[11px] rounded-lg transition-all duration-150 active:scale-95 flex items-center gap-1.5 border ${
+              dirtyCount > 0
+                ? 'bg-[#F5C518] text-black border-[#F5C518] hover:bg-[#EDB800] shadow-[0_0_12px_rgba(245,197,24,0.3)] cursor-pointer'
+                : 'bg-white/[0.03] text-white/20 border-white/[0.06] cursor-not-allowed'
+            }`}
+          >
+            <Save size={12} /> Submit {dirtyCount > 0 ? `(${dirtyCount})` : ''}
+          </button>
 
-          {(teamAFilter || teamBFilter || highlightMatchIdx !== -1) && (
-            <button
-              onClick={clearFilters}
-              className="px-3 py-1.5 bg-red-950/20 hover:bg-red-900/30 border border-red-900/40 text-red-300 rounded-lg text-[10px] font-bold tracking-wider uppercase transition active:scale-95 flex items-center gap-1"
-            >
-              Reset
-            </button>
-          )}
+          <button
+            onClick={clearFilters}
+            disabled={!(teamAFilter || teamBFilter || highlightMatchIdx !== -1)}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wider uppercase transition active:scale-95 flex items-center gap-1 border ${
+              (teamAFilter || teamBFilter || highlightMatchIdx !== -1)
+                ? 'bg-red-950/20 hover:bg-red-900/30 border-red-900/40 text-red-300 cursor-pointer'
+                : 'bg-white/[0.02] border-white/[0.05] text-white/10 cursor-not-allowed'
+            }`}
+          >
+            Reset
+          </button>
         </div>
       </div>
 
