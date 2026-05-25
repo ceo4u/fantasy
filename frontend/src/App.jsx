@@ -3,6 +3,7 @@ import { Routes, Route, NavLink } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar         from './components/Navbar';
 import Sidebar        from './components/Sidebar';
+import ScrollController from './components/ScrollController';
 import LoginModal     from './components/LoginModal';
 import Dashboard      from './pages/Dashboard';
 import Rankings       from './pages/Rankings';
@@ -85,6 +86,7 @@ function Layout() {
 
       <BottomNav/>
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)}/>
+      <ScrollController />
     </div>
   );
 }
