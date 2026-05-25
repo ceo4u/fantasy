@@ -68,7 +68,7 @@ const MatchCell = ({ value, originalValue, onChange, disabled, highlighted }) =>
         ${highlighted 
           ? isDirty
             ? 'bg-[#1E1E0A] border-[#F5C518] text-[#F5C518] ring-2 ring-[#F5C518]/20 scale-105'
-            : 'bg-[#15152A] border-[#7C3AED]/60 text-white font-bold ring-2 ring-[#7C3AED]/10 scale-105'
+            : 'bg-white/[0.05] border-white/50 text-white font-bold ring-2 ring-white/10 scale-105'
           : isDirty
             ? 'bg-[#18180F] border-[#F5C518]/70 text-[#F5C518] focus:ring-1 focus:ring-[#F5C518]/30'
             : 'bg-transparent border-white/[0.06] text-white/40 hover:border-white/15 focus:border-white/25 focus:text-white/80'}`}
@@ -137,7 +137,7 @@ const PlayerRow = ({ player, rowIdx, matchLabels, draft, savingRows, savedRows, 
 
       {/* Match cells */}
       {matchLabels.map((_, mi) => (
-        <td key={mi} className={`px-0.5 py-2 text-center transition-colors duration-150 ${highlightMatchIdx === mi ? 'bg-[#7C3AED]/[0.03]' : ''}`}>
+        <td key={mi} className={`px-0.5 py-2 text-center transition-colors duration-150 ${highlightMatchIdx === mi ? 'bg-white/[0.02]' : ''}`}>
           <MatchCell value={draft[mi]} originalValue={player.matchPoints[mi]}
             onChange={val => onCellChange(rowIdx, mi, val)} disabled={saving} highlighted={highlightMatchIdx === mi} />
         </td>
@@ -521,10 +521,10 @@ function TeamMatchEditor({ teamName, addToast }) {
                 </th>
                 {matchLabels.map((lbl, i) => (
                   <th key={i} className={`sticky top-0 z-30 px-0.5 py-2.5 text-center min-w-[52px] bg-[#111] border-b border-white/[0.06] transition-colors duration-150
-                    ${highlightMatchIdx === i ? 'bg-[#7C3AED]/10 border-b-[#7C3AED]' : ''}`}>
+                    ${highlightMatchIdx === i ? 'bg-white/[0.06] border-b-white' : ''}`}>
                     <span className={`text-[9px] font-bold px-1 py-0.5 rounded transition
                       ${highlightMatchIdx === i
-                        ? 'bg-[#7C3AED] text-white shadow-[0_0_8px_rgba(124,58,237,0.4)]'
+                        ? 'bg-white text-black shadow-[0_0_8px_rgba(255,255,255,0.4)]'
                         : ['Q1','EL','Q2','F'].includes(lbl) ? 'bg-purple-900/40 text-purple-300' : 'bg-[#F5C518]/10 text-[#F5C518]'}`}>
                       {lbl}
                     </span>
@@ -557,7 +557,7 @@ function TeamMatchEditor({ teamName, addToast }) {
                 {matchLabels.map((_, i) => {
                   const colTotal = players.reduce((s, p, ri) => s + (Number(drafts[ri]?.[i]) || 0), 0);
                   return <td key={i} className={`sticky bottom-0 z-30 px-0.5 py-2.5 text-center bg-[#111] border-t border-white/[0.07] transition-colors
-                    ${highlightMatchIdx === i ? 'bg-[#7C3AED]/5' : ''}`}>
+                    ${highlightMatchIdx === i ? 'bg-white/[0.02]' : ''}`}>
                     <span className={`text-[10px] font-bold font-mono ${colTotal > 0 ? 'text-white/45' : 'text-white/10'}`}>{colTotal > 0 ? colTotal : '—'}</span>
                   </td>;
                 })}
