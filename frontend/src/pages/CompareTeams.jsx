@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRankings } from '../hooks/usePlayers';
 import { fetchSquad } from '../utils/api';
 import { Scale, Users, Trophy, Zap, Crown, Shield, Star, Award, TrendingUp, Sparkles, BarChart2, AlertCircle, ArrowRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import LiveMatchBar from '../components/LiveMatchBar';
 
 const IPL_COLORS = {
   CSK:  { bg: '#F5C518', text: '#000' },
@@ -38,6 +40,7 @@ const SKILL_CHIP = {
 };
 
 export default function CompareTeams() {
+  const { matchMode, setMatchMode } = useAuth();
   const { rankings, loading: rankingsLoading } = useRankings();
   const [teamA, setTeamA] = useState('');
   const [teamB, setTeamB] = useState('');
@@ -209,13 +212,37 @@ export default function CompareTeams() {
             <Scale size={16} />
             <span className="label text-[#F5C518]">Comparison Engine</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Team Comparison</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Team Comparison</h1>
           <p className="text-sm text-white/30 mt-0.5">Select two squads to compare side-by-side and view point progression</p>
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#F5C518] bg-[#F5C518]/10 border border-[#F5C518]/20 px-3 py-1.5 rounded-full">
-          <Sparkles size={11} className="animate-pulse" /> Live Analysis
+        <div className="flex items-center gap-3 self-end sm:self-auto">
+          {/* Toggle Tab */}
+          <div className="flex items-center gap-2 bg-[#141414] border border-white/5 p-1 rounded-xl w-fit shrink-0">
+            <button
+              onClick={() => setMatchMode(false)}
+              className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition ${
+                !matchMode ? 'bg-white/10 text-white shadow-md' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+              }`}
+            >
+              Full Compare
+            </button>
+            <button
+              onClick={() => setMatchMode(true)}
+              className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition flex items-center gap-1.5 ${
+                matchMode ? 'bg-[#F5C518]/15 text-[#F5C518] border border-[#F5C518]/30 shadow-[0_0_12px_rgba(245,197,24,0.15)]' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+              }`}
+            >
+              <Zap size={12} className="fill-current" /> Live Match Mode
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#F5C518] bg-[#F5C518]/10 border border-[#F5C518]/20 px-3 py-2 rounded-xl shrink-0">
+            <Sparkles size={11} className="animate-pulse" /> Live Analysis
+          </div>
         </div>
       </div>
+
+      <LiveMatchBar />
 
       {/* ── Selectors ── */}
       <div className="card p-5 grid grid-cols-1 md:grid-cols-2 gap-4 relative overflow-hidden">

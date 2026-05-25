@@ -6,8 +6,12 @@ import {
   Loader2, ChevronDown, ChevronUp, Clock
 } from 'lucide-react';
 import { fetchSheet, getPlayerMatchHistory as apiGetPlayerMatchHistory } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import LiveMatchBar from '../components/LiveMatchBar';
+import { Zap } from 'lucide-react';
 
 export default function PlayerSearch() {
+  const { matchMode, setMatchMode } = useAuth();
   const [allPlayers, setAllPlayers] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   
@@ -140,14 +144,38 @@ export default function PlayerSearch() {
       <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none -z-10 mix-blend-screen" />
 
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-100 to-gray-400 tracking-tight">
-          Player Search & Match History
-        </h1>
-        <p className="text-sm text-gray-400 mt-2 font-medium">
-          Search players and view their complete match-wise performance with opponent details
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-100 to-gray-400 tracking-tight">
+            Player Search & Match History
+          </h1>
+          <p className="text-sm text-gray-400 mt-2 font-medium">
+            Search players and view their complete match-wise performance with opponent details
+          </p>
+        </div>
+        
+        {/* Toggle Tab */}
+        <div className="flex items-center gap-2 bg-[#141414] border border-white/5 p-1 rounded-xl w-fit shrink-0 self-end sm:self-auto">
+          <button
+            onClick={() => setMatchMode(false)}
+            className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition ${
+              !matchMode ? 'bg-white/10 text-white shadow-md' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+            }`}
+          >
+            All Players
+          </button>
+          <button
+            onClick={() => setMatchMode(true)}
+            className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition flex items-center gap-1.5 ${
+              matchMode ? 'bg-[#F5C518]/15 text-[#F5C518] border border-[#F5C518]/30 shadow-[0_0_12px_rgba(245,197,24,0.15)]' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+            }`}
+          >
+            <Zap size={12} className="fill-current" /> Live Match Mode
+          </button>
+        </div>
       </div>
+
+      <LiveMatchBar />
 
       {/* Search Bar */}
       <div className="relative mb-6 group">
