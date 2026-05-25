@@ -375,6 +375,7 @@ function RankCard({ entry, index }) {
 
 // ─── Main Rankings Page ───────────────────────────────────────────────────────
 export default function Rankings() {
+  const navigate = useNavigate();
   const { matchMode, setMatchMode } = useAuth();
   const { rankings, loading, error, refetch } = useRankings();
 
@@ -399,7 +400,10 @@ export default function Rankings() {
               Full Rankings
             </button>
             <button
-              onClick={() => setMatchMode(true)}
+              onClick={() => {
+                setMatchMode(true);
+                navigate('/squads');
+              }}
               className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition flex items-center gap-1.5 ${
                 matchMode ? 'bg-[#F5C518]/15 text-[#F5C518] border border-[#F5C518]/30 shadow-[0_0_12px_rgba(245,197,24,0.15)]' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
               }`}

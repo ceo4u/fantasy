@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, TrendingUp, Star, RefreshCw, Search, X } from 'lucide-react';
 import { usePlayers } from '../hooks/usePlayers';
@@ -31,6 +32,7 @@ function SkeletonRow() {
 const SKILLS = ['ALL', 'BAT', 'BOWL', 'WK'];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { matchMode, setMatchMode } = useAuth();
   const { players, loading, error, refetch } = usePlayers();
   const [search, setSearch]       = useState('');
@@ -76,7 +78,10 @@ export default function Dashboard() {
               Full View
             </button>
             <button
-              onClick={() => setMatchMode(true)}
+              onClick={() => {
+                setMatchMode(true);
+                navigate('/squads');
+              }}
               className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition flex items-center gap-1.5 ${
                 matchMode ? 'bg-[#F5C518]/15 text-[#F5C518] border border-[#F5C518]/30 shadow-[0_0_12px_rgba(245,197,24,0.15)]' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
               }`}

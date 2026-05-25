@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRankings } from '../hooks/usePlayers';
 import { fetchSquad } from '../utils/api';
@@ -40,6 +41,7 @@ const SKILL_CHIP = {
 };
 
 export default function CompareTeams() {
+  const navigate = useNavigate();
   const { matchMode, setMatchMode } = useAuth();
   const { rankings, loading: rankingsLoading } = useRankings();
   const [teamA, setTeamA] = useState('');
@@ -227,7 +229,10 @@ export default function CompareTeams() {
               Full Compare
             </button>
             <button
-              onClick={() => setMatchMode(true)}
+              onClick={() => {
+                setMatchMode(true);
+                navigate('/squads');
+              }}
               className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition flex items-center gap-1.5 ${
                 matchMode ? 'bg-[#F5C518]/15 text-[#F5C518] border border-[#F5C518]/30 shadow-[0_0_12px_rgba(245,197,24,0.15)]' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
               }`}
