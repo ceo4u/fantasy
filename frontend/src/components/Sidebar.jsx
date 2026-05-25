@@ -15,7 +15,7 @@ export default function Sidebar({ mobile, onClose }) {
   const navItems = isAdmin
     ? [
         ...baseLinks, 
-        { to: '/admin', label: 'Admin', icon: Shield }
+        { to: '/admin', label: 'Admin', icon: Shield },
       ]
     : baseLinks;
 

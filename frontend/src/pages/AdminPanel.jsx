@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import { useSquad, useRankings } from '../hooks/usePlayers';
 import { updateMatchPoints, markCaptainVC, undoReplace, getMatches, fetchSquad } from '../utils/api';
 import ReplacePlayerModal from '../components/ReplacePlayerModal';
-import AllTeamsMatchView from '../components/AllTeamsMatchView';
 
 const IPL_COLORS = {
   CSK:{bg:'#D4A017',text:'#000'}, MI:{bg:'#1A56B0',text:'#fff'},
@@ -592,29 +591,468 @@ function TeamMatchEditor({ teamName, addToast }) {
   );
 }
 
+// ─── Unified Fixture Editor (Bulk Point Entry) ─────────────────────────────────
+function UnifiedFixtureEditor({ rankings, addToast }) {
+  const [allSquadsData, setAllSquadsData] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  // Match & Team Filter States
+  const [scheduledMatches, setScheduledMatches] = useState([]);
+  const [selectedMatchId, setSelectedMatchId]   = useState('');
+  const [teamAFilter, setTeamAFilter]           = useState('');
+  const [teamBFilter, setTeamBFilter]           = useState('');
+  const [highlightMatchIdx, setHighlightMatchIdx] = useState(-1);
+
+  // Fetch scheduled matches
+  useEffect(() => {
+    async function loadMatches() {
+      try {
+        const list = await getMatches();
+        setScheduledMatches(list || []);
+      } catch (err) {
+        console.error('Failed to load scheduled matches', err);
+      }
+    }
+    loadMatches();
+  }, []);
+
+  // Fetch all squads in parallel
+  useEffect(() => {
+    async function loadAll() {
+      setLoading(true);
+      try {
+        const results = await Promise.all(
+          rankings.map(r => fetchSquad(r.team).then(data => ({ team: r.team, data })))
+        );
+        const map = {};
+        results.forEach(res => {
+          map[res.team] = res.data;
+        });
+        setAllSquadsData(map);
+      } catch (err) {
+        console.error(err);
+        addToast('Failed to load squad datasets', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (rankings.length > 0) loadAll();
+  }, [rankings]);
+
+  // Extract match labels from first loaded squad
+  const matchLabels = useMemo(() => {
+    const firstSquad = Object.values(allSquadsData)[0];
+    return firstSquad?.matchLabels || [];
+  }, [allSquadsData]);
+
+  // Compile unique players belonging to playing teams across all fantasy squads
+  const uniquePlayers = useMemo(() => {
+    const playerMap = {};
+
+    Object.entries(allSquadsData).forEach(([teamName, squadData]) => {
+      squadData.players.forEach(p => {
+        const iplTeam = p.iplTeam?.toUpperCase();
+        const matchesA = teamAFilter ? iplTeam === teamAFilter.toUpperCase() : false;
+        const matchesB = teamBFilter ? iplTeam === teamBFilter.toUpperCase() : false;
+        if ((teamAFilter || teamBFilter) && !matchesA && !matchesB) return;
+
+        if (!playerMap[p.name]) {
+          playerMap[p.name] = {
+            name: p.name,
+            iplTeam: p.iplTeam,
+            skill: p.skill,
+            squads: []
+          };
+        }
+
+        playerMap[p.name].squads.push({
+          teamName,
+          rawName: p.rawName,
+          originalPoints: highlightMatchIdx !== -1 ? (p.matchPoints[highlightMatchIdx] || 0) : 0
+        });
+      });
+    });
+
+    const list = Object.values(playerMap);
+    list.sort((a, b) => {
+      if (a.iplTeam !== b.iplTeam) return a.iplTeam.localeCompare(b.iplTeam);
+      return a.name.localeCompare(b.name);
+    });
+
+    return list;
+  }, [allSquadsData, teamAFilter, teamBFilter, highlightMatchIdx]);
+
+  // Point Drafts
+  const [draftPoints, setDraftPoints] = useState({});
+  const [savingPlayers, setSavingPlayers] = useState(new Set());
+  const [savedPlayers, setSavedPlayers] = useState(new Set());
+
+  useEffect(() => {
+    const initial = {};
+    uniquePlayers.forEach(p => {
+      initial[p.name] = p.squads[0]?.originalPoints ?? 0;
+    });
+    setDraftPoints(initial);
+    setSavingPlayers(new Set());
+    setSavedPlayers(new Set());
+  }, [uniquePlayers]);
+
+  const handlePointsChange = (name, val) => {
+    setDraftPoints(prev => ({ ...prev, [name]: val }));
+    setSavedPlayers(prev => {
+      const next = new Set(prev);
+      next.delete(name);
+      return next;
+    });
+  };
+
+  const handleSavePlayer = async (playerObj) => {
+    if (highlightMatchIdx === -1) {
+      addToast('Please select a match column to update!', 'error');
+      return;
+    }
+    const val = draftPoints[playerObj.name] ?? 0;
+    const targets = playerObj.squads.filter(s => Number(s.originalPoints) !== Number(val));
+    if (targets.length === 0) return;
+
+    setSavingPlayers(prev => new Set([...prev, playerObj.name]));
+    try {
+      await Promise.all(
+        targets.map(t => updateMatchPoints(t.teamName, t.rawName, highlightMatchIdx, val))
+      );
+
+      addToast(`✓ Updated ${playerObj.name} in ${targets.length} squads!`, 'success');
+
+      // Update local cache optimistically
+      setAllSquadsData(prev => {
+        const next = { ...prev };
+        targets.forEach(t => {
+          const squad = next[t.teamName];
+          if (squad) {
+            squad.players = squad.players.map(p => {
+              if (p.name === playerObj.name) {
+                const newMatchPoints = [...p.matchPoints];
+                newMatchPoints[highlightMatchIdx] = val;
+                return { ...p, matchPoints: newMatchPoints };
+              }
+              return p;
+            });
+          }
+        });
+        return next;
+      });
+
+      setSavedPlayers(prev => new Set([...prev, playerObj.name]));
+      setTimeout(() => {
+        setSavedPlayers(prev => {
+          const next = new Set(prev);
+          next.delete(playerObj.name);
+          return next;
+        });
+      }, 2500);
+
+    } catch (err) {
+      addToast(`Error saving ${playerObj.name}: ${err.response?.data?.error || err.message}`, 'error');
+    } finally {
+      setSavingPlayers(prev => {
+        const next = new Set(prev);
+        next.delete(playerObj.name);
+        return next;
+      });
+    }
+  };
+
+  const handleSaveAll = async () => {
+    const dirty = uniquePlayers.filter(p => {
+      const val = draftPoints[p.name] ?? 0;
+      return p.squads.some(s => Number(s.originalPoints) !== Number(val));
+    });
+
+    if (dirty.length === 0) return;
+
+    // Save one by one to prevent rate limits
+    for (const p of dirty) {
+      await handleSavePlayer(p);
+    }
+    addToast(`✓ Successfully updated all match-day points!`, 'success');
+  };
+
+  const handleFixtureSelect = (e) => {
+    const val = e.target.value;
+    setSelectedMatchId(val);
+    if (!val) {
+      setTeamAFilter('');
+      setTeamBFilter('');
+      return;
+    }
+    const match = scheduledMatches.find(m => m.matchId === val || `${m.teamA}-${m.teamB}` === val);
+    if (match) {
+      setTeamAFilter(match.teamA);
+      setTeamBFilter(match.teamB);
+      
+      const numMatch = match.matchId?.match(/\d+/);
+      if (numMatch && matchLabels.length > 0) {
+        const numStr = numMatch[0];
+        const idx = matchLabels.indexOf(numStr);
+        if (idx !== -1) setHighlightMatchIdx(idx);
+      } else if (matchLabels.length > 0) {
+        const label = match.matchId?.toUpperCase();
+        const idx = matchLabels.findIndex(l => l.toUpperCase() === label);
+        if (idx !== -1) setHighlightMatchIdx(idx);
+      }
+    }
+  };
+
+  const clearFilters = () => {
+    setTeamAFilter('');
+    setTeamBFilter('');
+    setHighlightMatchIdx(-1);
+    setSelectedMatchId('');
+  };
+
+  const dirtyCount = useMemo(() => {
+    return uniquePlayers.filter(p => {
+      const val = draftPoints[p.name] ?? 0;
+      return p.squads.some(s => Number(s.originalPoints) !== Number(val));
+    }).length;
+  }, [uniquePlayers, draftPoints]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <Loader size={22} className="animate-spin text-[#F5C518]" />
+        <p className="text-sm text-white/30">Loading players database across all squads…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Filters widget */}
+      <div className="card bg-gradient-to-r from-[#181812] to-[#11110B] border border-[#F5C518]/15 p-5 rounded-xl flex flex-wrap gap-4 items-center shadow-lg relative overflow-hidden">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#F5C518]/10 flex items-center justify-center border border-[#F5C518]/25 text-[#F5C518]">
+            <Zap size={14} className="fill-[#F5C518]/10 animate-pulse" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-white">Fixture Points entry helper</h4>
+            <p className="text-[10px] text-white/35">Filter all squads simultaneously by real match-up</p>
+          </div>
+        </div>
+
+        {/* Scheduled fixtures dropdown */}
+        {scheduledMatches.length > 0 && (
+          <div className="flex flex-col gap-1 min-w-[170px]">
+            <span className="text-[9px] uppercase font-extrabold text-white/40 tracking-wider">Scheduled fixture</span>
+            <select
+              value={selectedMatchId}
+              onChange={handleFixtureSelect}
+              className="bg-[#0C0C0C] border border-white/10 hover:border-white/20 focus:border-[#F5C518] rounded-lg text-xs px-2.5 py-1.5 text-white font-semibold outline-none transition cursor-pointer"
+            >
+              <option value="">-- Choose Fixture --</option>
+              {scheduledMatches.map(m => (
+                <option key={m.matchId || m.date + m.teamA} value={m.matchId || `${m.teamA}-${m.teamB}`}>
+                  {m.teamA} vs {m.teamB} ({m.date})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Team A selector */}
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] uppercase font-extrabold text-white/40 tracking-wider">IPL Team A</span>
+          <select
+            value={teamAFilter}
+            onChange={e => { setTeamAFilter(e.target.value); setSelectedMatchId(''); }}
+            className="bg-[#0C0C0C] border border-white/10 hover:border-white/20 focus:border-[#F5C518] rounded-lg text-xs px-2.5 py-1.5 text-white font-semibold outline-none transition cursor-pointer"
+          >
+            <option value="">-- All --</option>
+            {Object.keys(IPL_COLORS).map(team => (
+              <option key={team} value={team}>{team}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Team B selector */}
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] uppercase font-extrabold text-white/40 tracking-wider">IPL Team B</span>
+          <select
+            value={teamBFilter}
+            onChange={e => { setTeamBFilter(e.target.value); setSelectedMatchId(''); }}
+            className="bg-[#0C0C0C] border border-white/10 hover:border-white/20 focus:border-[#F5C518] rounded-lg text-xs px-2.5 py-1.5 text-white font-semibold outline-none transition cursor-pointer"
+          >
+            <option value="">-- All --</option>
+            {Object.keys(IPL_COLORS).map(team => (
+              <option key={team} value={team}>{team}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Highlight column */}
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] uppercase font-extrabold text-white/40 tracking-wider">Edit Column</span>
+          <select
+            value={highlightMatchIdx}
+            onChange={e => setHighlightMatchIdx(Number(e.target.value))}
+            className="bg-[#0C0C0C] border border-white/10 hover:border-white/20 focus:border-[#F5C518] rounded-lg text-xs px-2.5 py-1.5 text-[#F5C518] font-mono font-semibold outline-none transition cursor-pointer"
+          >
+            <option value="-1">-- Select Column --</option>
+            {matchLabels.map((lbl, idx) => (
+              <option key={idx} value={idx}>Match {lbl}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Action Button Group */}
+        <div className="flex items-center gap-2 sm:ml-auto self-end">
+          {dirtyCount > 0 && (
+            <button
+              onClick={handleSaveAll}
+              className="px-3.5 py-1.5 bg-[#F5C518] hover:bg-[#EDB800] text-black font-extrabold text-[11px] rounded-lg transition-all duration-150 active:scale-95 flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,197,24,0.3)]"
+            >
+              <Save size={12} /> Save All ({dirtyCount})
+            </button>
+          )}
+
+          {(teamAFilter || teamBFilter || highlightMatchIdx !== -1) && (
+            <button
+              onClick={clearFilters}
+              className="px-3 py-1.5 bg-red-950/20 hover:bg-red-900/30 border border-red-900/40 text-red-300 rounded-lg text-[10px] font-bold tracking-wider uppercase transition active:scale-95 flex items-center gap-1"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Roster Table */}
+      <div className="card overflow-hidden">
+        <div className="overflow-auto max-h-[65vh] custom-scrollbar scroll-smooth">
+          <table className="w-full text-left border-collapse" style={{ minWidth: 800 }}>
+            <thead>
+              <tr className="border-b border-white/[0.06] bg-[#111] text-[10px] uppercase font-black tracking-wider text-white/40">
+                <th className="px-4 py-3 min-w-[220px]">Playing Athlete</th>
+                <th className="px-4 py-3 min-w-[280px]">Drafted in Fantasy Teams</th>
+                <th className="px-4 py-3 text-center w-[120px]">Points Value</th>
+                <th className="px-4 py-3 text-center w-[100px]">Save Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {uniquePlayers.map(p => {
+                const draftVal = draftPoints[p.name] ?? 0;
+                const isSaving = savingPlayers.has(p.name);
+                const isSaved = savedPlayers.has(p.name);
+                const isDirty = p.squads.some(s => Number(s.originalPoints) !== Number(draftVal));
+                const iplColor = IPL_COLORS[p.iplTeam] || { bg: '#333', text: '#fff' };
+
+                return (
+                  <tr key={p.name} className={`border-b border-white/[0.03] hover:bg-white/[0.01] transition-all duration-100 ${isDirty ? 'bg-[#F5C518]/[0.015]' : ''}`}>
+                    
+                    {/* Athlete info */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-extrabold shrink-0" style={{ background: iplColor.bg, color: iplColor.text }}>
+                          {p.name.charAt(0)}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold text-white truncate block">{p.name}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[8px] font-extrabold px-1 rounded uppercase tracking-wider" style={{ background: iplColor.bg, color: iplColor.text }}>
+                              {p.iplTeam}
+                            </span>
+                            <span className="text-[9px] text-white/30">{p.skill}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Drafted Squad Chips */}
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {p.squads.map(s => {
+                          const isC = s.rawName.includes('(C)');
+                          const isVC = s.rawName.includes('(VC)');
+                          return (
+                            <span key={s.teamName} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold border transition ${
+                              isC ? 'bg-[#F5C518]/10 border-[#F5C518]/30 text-[#F5C518]' :
+                              isVC ? 'bg-blue-900/30 border-blue-800/30 text-blue-300' :
+                              'bg-white/[0.03] border-white/[0.06] text-white/50'
+                            }`}>
+                              {s.teamName}
+                              {isC && <Crown size={9} />}
+                              {isVC && <Shield size={9} />}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </td>
+
+                    {/* Points Input */}
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={highlightMatchIdx === -1 || isSaving}
+                        value={draftVal === 0 && !isDirty ? '' : draftVal}
+                        placeholder={highlightMatchIdx === -1 ? 'Select Match' : '0'}
+                        onChange={e => handlePointsChange(p.name, e.target.value === '' ? 0 : Number(e.target.value))}
+                        className={`w-20 text-center font-mono text-xs py-1.5 rounded-lg border outline-none transition-all duration-150 ${
+                          highlightMatchIdx === -1 ? 'bg-white/[0.01] border-white/5 text-white/20 cursor-not-allowed' :
+                          isDirty ? 'bg-[#1E1E0A] border-[#F5C518] text-[#F5C518] font-bold scale-105 shadow-sm' :
+                          'bg-transparent border-white/[0.08] text-white/70 hover:border-white/15 focus:border-[#7C3AED] focus:text-white'
+                        }`}
+                      />
+                    </td>
+
+                    {/* Save action button */}
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => handleSavePlayer(p)}
+                        disabled={!isDirty || isSaving || isSaved || highlightMatchIdx === -1}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition active:scale-95 ${
+                          isSaved ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/40 cursor-default' :
+                          isDirty && !isSaving ? 'bg-[#F5C518] text-black hover:bg-[#EDB800] shadow-sm' :
+                          'bg-transparent text-white/15 cursor-not-allowed border border-white/[0.05]'
+                        }`}
+                      >
+                        {isSaving ? <Loader size={11} className="animate-spin" /> :
+                         isSaved ? <><CheckCircle2 size={11} /> OK</> :
+                         <><Save size={11} /> Save</>}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {uniquePlayers.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="text-center py-16 text-xs text-white/25 italic bg-[#111]/30">
+                    {teamAFilter || teamBFilter ?
+                      'No drafted playing athletes found for selected match fixture.' :
+                      'Select fixture above or enter Team names to load roster players.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Admin Panel ─────────────────────────────────────────────────────────
 export default function AdminPanel() {
   const { isAdmin } = useAuth();
   const { rankings, loading: rLoading } = useRankings();
-  const [selectedTeam, setSelectedTeam]       = useState('');
-  const [toasts, setToasts]                   = useState([]);
-
-  // ── Global IPL fixture filters (lifted up so AllTeamsMatchView can use them) ──
-  const [scheduledMatches, setScheduledMatches] = useState([]);
-  const [selectedMatchId,  setSelectedMatchId]  = useState('');
-  const [teamAFilter,      setTeamAFilter]       = useState('');
-  const [teamBFilter,      setTeamBFilter]       = useState('');
-  const [highlightMatchIdx,setHighlightMatchIdx] = useState(-1);
-
-  const isFilterActive = !!(teamAFilter || teamBFilter);
+  const [selectedTeam, setSelectedTeam] = useState('');
+  const [adminMode, setAdminMode] = useState('squad'); // 'squad' or 'unified'
+  const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
     if (rankings.length > 0 && !selectedTeam) setSelectedTeam(rankings[0].team);
   }, [rankings]);
-
-  useEffect(() => {
-    getMatches().then(list => setScheduledMatches(list || [])).catch(() => {});
-  }, []);
 
   const addToast = useCallback((msg, type = 'success') => {
     const id = Date.now();
@@ -622,20 +1060,7 @@ export default function AdminPanel() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   }, []);
 
-  const handleFixtureSelect = (e) => {
-    const val = e.target.value;
-    setSelectedMatchId(val);
-    if (!val) { setTeamAFilter(''); setTeamBFilter(''); return; }
-    const match = scheduledMatches.find(m => m.matchId === val || `${m.teamA}-${m.teamB}` === val);
-    if (match) { setTeamAFilter(match.teamA); setTeamBFilter(match.teamB); }
-  };
-
-  const clearFilters = () => { setTeamAFilter(''); setTeamBFilter(''); setHighlightMatchIdx(-1); setSelectedMatchId(''); };
-
   if (!isAdmin) return <AccessDenied />;
-
-  // Match labels from first available squad (used in highlight selector)
-  const MATCH_LABELS_STATIC = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','Q1','EL','Q2','F'];
 
   return (
     <div className="space-y-5 animate-fade-in pb-10">
@@ -643,93 +1068,33 @@ export default function AdminPanel() {
         <div>
           <p className="label text-[#F5C518] mb-1.5">Admin Only</p>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Match Points Editor</h1>
-          <p className="text-sm text-white/30 mt-0.5">Edit points & assign Captain/VC — syncs live to Google Sheets</p>
+          <p className="text-sm text-white/30 mt-0.5">Edit points & assign Captain/VC per team — syncs live to Google Sheets</p>
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400 bg-emerald-900/20 border border-emerald-800/30 px-3 py-1.5 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"/>Live Sync
-        </div>
-      </div>
-
-      {/* ── Global IPL Match Filter ── */}
-      <div className="card bg-gradient-to-r from-[#171725] to-[#11111E] border border-[#7C3AED]/20 p-4 flex flex-wrap gap-4 items-end shadow-lg">
-        <div className="flex items-center gap-2.5 self-start">
-          <div className="w-8 h-8 rounded-lg bg-[#7C3AED]/15 flex items-center justify-center border border-[#7C3AED]/30">
-            <Zap size={14} className="text-[#a78bfa]" />
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-white">Match-up Filter</h4>
-            <p className="text-[10px] text-white/35">
-              {isFilterActive
-                ? '⚡ Showing players from ALL fantasy teams'
-                : 'Select IPL teams to view all players across squads'}
-            </p>
-          </div>
-        </div>
-
-        {scheduledMatches.length > 0 && (
-          <div className="flex flex-col gap-1">
-            <span className="text-[9px] uppercase font-extrabold text-white/40 tracking-wider">Fixture</span>
-            <select value={selectedMatchId} onChange={handleFixtureSelect}
-              className="bg-[#0C0C0C] border border-white/10 hover:border-white/20 focus:border-[#7C3AED] rounded-lg text-xs px-2.5 py-1.5 text-white font-semibold outline-none transition cursor-pointer min-w-[160px]">
-              <option value="">-- Choose --</option>
-              {scheduledMatches.map(m => (
-                <option key={m.matchId || m.date + m.teamA} value={m.matchId || `${m.teamA}-${m.teamB}`}>
-                  {m.teamA} vs {m.teamB}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-1">
-          <span className="text-[9px] uppercase font-extrabold text-white/40 tracking-wider">IPL Team 1</span>
-          <select value={teamAFilter} onChange={e => { setTeamAFilter(e.target.value); setSelectedMatchId(''); }}
-            className="bg-[#0C0C0C] border border-white/10 hover:border-white/20 focus:border-[#7C3AED] rounded-lg text-xs px-2.5 py-1.5 text-white font-semibold outline-none transition cursor-pointer">
-            <option value="">-- All --</option>
-            {Object.keys(IPL_COLORS).map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-[9px] uppercase font-extrabold text-white/40 tracking-wider">IPL Team 2</span>
-          <select value={teamBFilter} onChange={e => { setTeamBFilter(e.target.value); setSelectedMatchId(''); }}
-            className="bg-[#0C0C0C] border border-white/10 hover:border-white/20 focus:border-[#7C3AED] rounded-lg text-xs px-2.5 py-1.5 text-white font-semibold outline-none transition cursor-pointer">
-            <option value="">-- All --</option>
-            {Object.keys(IPL_COLORS).map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-[9px] uppercase font-extrabold text-white/40 tracking-wider">Highlight Column</span>
-          <select value={highlightMatchIdx} onChange={e => setHighlightMatchIdx(Number(e.target.value))}
-            className="bg-[#0C0C0C] border border-white/10 hover:border-white/20 focus:border-[#7C3AED] rounded-lg text-xs px-2.5 py-1.5 text-[#F5C518] font-mono font-semibold outline-none transition cursor-pointer">
-            <option value="-1">-- Match Col --</option>
-            {MATCH_LABELS_STATIC.map((lbl, idx) => <option key={idx} value={idx}>Match {lbl}</option>)}
-          </select>
-        </div>
-
-        {isFilterActive && (
-          <button onClick={clearFilters}
-            className="px-3 py-1.5 bg-red-950/20 hover:bg-red-900/30 border border-red-900/40 text-red-300 rounded-lg text-[10px] font-bold uppercase tracking-wider transition active:scale-95 self-end">
-            Reset Filters
+        
+        {/* Unified / Single Toggle */}
+        <div className="flex items-center gap-2 bg-[#141414] border border-white/5 p-1 rounded-xl w-fit shrink-0">
+          <button
+            onClick={() => setAdminMode('squad')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition ${
+              adminMode === 'squad' ? 'bg-[#F5C518] text-black shadow-md' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+            }`}
+          >
+            Fantasy Team View
           </button>
-        )}
+          <button
+            onClick={() => setAdminMode('unified')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition flex items-center gap-1.5 ${
+              adminMode === 'unified' ? 'bg-[#F5C518]/15 text-[#F5C518] border border-[#F5C518]/30 shadow-[0_0_12px_rgba(245,197,24,0.15)]' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+            }`}
+          >
+            <Zap size={12} className="fill-current" /> Unified Fixture View
+          </button>
+        </div>
       </div>
 
-      {/* ── If filter active: show ALL teams unified view ── */}
-      {isFilterActive ? (
-        <motion.div key="all-teams" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-          <AllTeamsMatchView
-            rankings={rankings}
-            teamAFilter={teamAFilter}
-            teamBFilter={teamBFilter}
-            highlightMatchIdx={highlightMatchIdx}
-            addToast={addToast}
-          />
-        </motion.div>
-      ) : (
+      {adminMode === 'squad' ? (
         <>
-          {/* ── Per-team selector (only shown when no IPL filter active) ── */}
+          {/* Team Selector */}
           <div className="card p-4">
             <p className="label mb-3">Select Fantasy Team</p>
             {rLoading ? (
@@ -755,6 +1120,10 @@ export default function AdminPanel() {
             </motion.div>
           )}
         </>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
+          <UnifiedFixtureEditor rankings={rankings} addToast={addToast} />
+        </motion.div>
       )}
 
       <Toast toasts={toasts} />
